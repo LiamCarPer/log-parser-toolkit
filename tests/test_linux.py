@@ -17,7 +17,7 @@ def sample_syslog():
 
 def test_linux_syslog_parser(sample_syslog):
     parser = LinuxSyslogParser(sample_syslog)
-    parsed = parser.parse()
+    parsed = list(parser.parse())
     
     assert len(parsed) == 2
     

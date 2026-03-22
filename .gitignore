@@ -24,3 +24,4 @@ samples/*.csv
 *.csv
 *.json
 !samples/sample_windows.csv
+log_parser_toolkit.egg-info/

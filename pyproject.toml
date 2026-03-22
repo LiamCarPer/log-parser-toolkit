@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "log-parser-toolkit"
+version = "0.1.0"
+description = "A command-line utility to parse various log formats into JSON or CSV."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Liam", email = "carvajalperezliam7@gmail.com~"}
+]
+dependencies = []
+
+[project.scripts]
+log-parser = "log_parser:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools]
+py-modules = ["log_parser"]
+
+[tool.setuptools.packages.find]
+include = ["parsers*"]

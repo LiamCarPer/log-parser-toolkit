@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict, Any
+from typing import Iterator, Dict, Any
 from .base import BaseParser
 
 class WebLogParser(BaseParser):
@@ -7,8 +7,6 @@ class WebLogParser(BaseParser):
     Parses Apache/Nginx combined log format files.
     """
     
-    # Common Log Format + Combined
-    # Example: 127.0.0.1 - - [22/Mar/2026:10:15:00 +0000] "GET /index.html HTTP/1.1" 200 1024 "-" "Mozilla/5.0..."
     LOG_PATTERN = re.compile(
         r'^(?P<ip>\S+)\s+'
         r'(?P<ident>\S+)\s+'
@@ -21,13 +19,11 @@ class WebLogParser(BaseParser):
         r'"(?P<user_agent>[^"]*)"$'
     )
 
-    def parse(self) -> List[Dict[str, Any]]:
-        parsed_data = []
+    def parse(self) -> Iterator[Dict[str, Any]]:
         with open(self.file_path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
                 match = self.LOG_PATTERN.match(line.strip())
                 if match:
-                    parsed_data.append(match.groupdict())
+                    yield match.groupdict()
                 else:
-                    parsed_data.append({"raw_line": line.strip(), "error": "unmatched"})
-        return parsed_data
+                    yield {"raw_line": line.strip(), "error": "unmatched"}

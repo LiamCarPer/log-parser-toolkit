@@ -17,7 +17,7 @@ def sample_windowslog():
 
 def test_windows_log_parser(sample_windowslog):
     parser = WindowsLogParser(sample_windowslog)
-    parsed = parser.parse()
+    parsed = list(parser.parse())
     
     assert len(parsed) == 1
     

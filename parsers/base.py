@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Iterator, Dict, Any
 import os
 
 class BaseParser(ABC):
@@ -13,9 +13,9 @@ class BaseParser(ABC):
         self.file_path = file_path
 
     @abstractmethod
-    def parse(self) -> List[Dict[str, Any]]:
+    def parse(self) -> Iterator[Dict[str, Any]]:
         """
-        Parses the log file and returns a list of dictionaries,
+        Parses the log file and yields dictionaries,
         where each dictionary represents a parsed log line.
         """
         pass

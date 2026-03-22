@@ -16,7 +16,7 @@ def sample_weblog():
 
 def test_web_log_parser(sample_weblog):
     parser = WebLogParser(sample_weblog)
-    parsed = parser.parse()
+    parsed = list(parser.parse())
     
     assert len(parsed) == 1
     
