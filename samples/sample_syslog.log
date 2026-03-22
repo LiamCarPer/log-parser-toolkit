@@ -1,0 +1,5 @@
+Mar 22 10:15:30 server1 sshd[1234]: Accepted publickey for user1 from 192.168.1.100 port 50432 ssh2
+Mar 22 10:16:01 server1 CRON[1240]: pam_unix(cron:session): session opened for user root by (uid=0)
+Mar 22 10:16:01 server1 CRON[1240]: pam_unix(cron:session): session closed for user root
+Mar 22 10:20:45 server2 kernel: [ 1234.567890] iptables denied: IN=eth0 OUT= MAC=00:11:22:33:44:55:66:77:88:99:aa:bb:08:00 SRC=10.0.0.5 DST=192.168.1.50 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=12345 DF PROTO=TCP SPT=443 DPT=54321 WINDOW=65535 RES=0x00 ACK URGP=0
+Mar 22 10:25:12 server1 sudo:  user1 : TTY=pts/0 ; PWD=/home/user1 ; USER=root ; COMMAND=/bin/bash

@@ -1,0 +1,4 @@
+127.0.0.1 - - [22/Mar/2026:10:15:00 +0000] "GET /index.html HTTP/1.1" 200 1024 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+192.168.1.100 - user1 [22/Mar/2026:10:16:30 +0000] "POST /api/login HTTP/1.1" 401 512 "http://example.com/login" "curl/7.68.0"
+10.0.0.5 - - [22/Mar/2026:10:20:45 +0000] "GET /images/logo.png HTTP/1.1" 304 0 "http://example.com/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+127.0.0.1 - - [22/Mar/2026:10:25:10 +0000] "GET /not-found HTTP/1.1" 404 256 "-" "python-requests/2.25.1"

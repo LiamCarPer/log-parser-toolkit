@@ -1,0 +1,5 @@
+TimeCreated,Id,LevelDisplayName,ProviderName,Message
+"3/22/2026 10:15:00 AM",4624,Information,Microsoft-Windows-Security-Auditing,"An account was successfully logged on."
+"3/22/2026 10:20:30 AM",4625,Information,Microsoft-Windows-Security-Auditing,"An account failed to log on."
+"3/22/2026 10:25:15 AM",7036,Information,Service Control Manager,"The Print Spooler service entered the running state."
+"3/22/2026 10:30:00 AM",10016,Error,Microsoft-Windows-DistributedCOM,"The machine-default permission settings do not grant Local Activation permission for the COM Server application with CLSID {12345678-1234-1234-1234-1234567890AB}"
