@@ -14,11 +14,17 @@ class LinuxSyslogParser(BaseParser):
         r"(?P<message>.*)$"
     )
 
+    def get_fields(self) -> list[str]:
+        return ["timestamp", "hostname", "process", "pid", "message", "raw_line", "error"]
+
     def parse(self) -> Iterator[Dict[str, Any]]:
+        fields = self.get_fields()
         with open(self.file_path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
                 match = self.LOG_PATTERN.match(line.strip())
+                res = {f: None for f in fields}
                 if match:
-                    yield match.groupdict()
+                    res.update(match.groupdict())
                 else:
-                    yield {"raw_line": line.strip(), "error": "unmatched"}
+                    res.update({"raw_line": line.strip(), "error": "unmatched"})
+                yield res

@@ -21,6 +21,8 @@ def main():
     parser.add_argument("--format", required=True, choices=["linux", "web", "windows"], help="Format of the input log file.")
     parser.add_argument("--output", required=True, help="Path to the output file.")
     parser.add_argument("--type", required=True, choices=["json", "csv"], help="Output file type (json or csv).")
+    parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
+    parser.add_argument("--strict", action="store_true", help="If enabled, stop execution on first unmatched line.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging.")
 
     args = parser.parse_args()
@@ -47,28 +49,66 @@ def main():
             logger.warning("No valid log lines parsed or file is empty.")
             sys.exit(0)
 
+        error_f = None
+        if args.error_file:
+            error_f = open(args.error_file, 'w', encoding='utf-8')
+
+        matched_count = 0
+        unmatched_count = 0
+        import itertools
+        all_rows = itertools.chain([first_item], parsed_iterator)
+
         if args.type == "csv":
+            fields = parser_instance.get_fields()
             with open(args.output, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=first_item.keys())
+                writer = csv.DictWriter(f, fieldnames=fields)
                 writer.writeheader()
-                writer.writerow(first_item)
-                count = 1
-                for row in parsed_iterator:
-                    row_clean = {k: row.get(k) for k in first_item.keys()}
-                    writer.writerow(row_clean)
-                    count += 1
-            logger.info(f"Successfully saved {count} records to CSV: {args.output}")
+                for row in all_rows:
+                    if row.get("error"):
+                        unmatched_count += 1
+                        if args.strict:
+                            logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
+                            if error_f: error_f.close()
+                            sys.exit(1)
+                        if error_f:
+                            error_f.write(row.get('raw_line', '') + "\n")
+                    else:
+                        matched_count += 1
+                    writer.writerow(row)
+            
+            logger.info(f"Successfully processed {matched_count + unmatched_count} records.")
+            logger.info(f" - Saved to CSV: {args.output}")
 
         elif args.type == "json":
             with open(args.output, 'w', encoding='utf-8') as f:
                 f.write('[\n')
-                f.write('    ' + json.dumps(first_item))
-                count = 1
-                for row in parsed_iterator:
-                    f.write(',\n    ' + json.dumps(row))
-                    count += 1
+                is_first = True
+                for row in all_rows:
+                    if row.get("error"):
+                        unmatched_count += 1
+                        if args.strict:
+                            logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
+                            if error_f: error_f.close()
+                            sys.exit(1)
+                        if error_f:
+                            error_f.write(row.get('raw_line', '') + "\n")
+                    else:
+                        matched_count += 1
+                    
+                    if not is_first:
+                        f.write(',\n')
+                    f.write('    ' + json.dumps(row))
+                    is_first = False
                 f.write('\n]\n')
-            logger.info(f"Successfully saved {count} records to JSON: {args.output}")
+            logger.info(f"Successfully processed {matched_count + unmatched_count} records.")
+            logger.info(f" - Saved to JSON: {args.output}")
+
+        if error_f:
+            error_f.close()
+            if unmatched_count > 0:
+                logger.warning(f" - Found {unmatched_count} unmatched lines. Details saved to: {args.error_file}")
+            else:
+                logger.info(" - No unmatched lines found.")
 
     except Exception as e:
         logger.error(f"Error during parsing or saving: {e}")

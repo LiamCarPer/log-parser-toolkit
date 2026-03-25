@@ -13,6 +13,13 @@ class BaseParser(ABC):
         self.file_path = file_path
 
     @abstractmethod
+    def get_fields(self) -> list[str]:
+        """
+        Returns the list of field names that this parser produces.
+        """
+        pass
+
+    @abstractmethod
     def parse(self) -> Iterator[Dict[str, Any]]:
         """
         Parses the log file and yields dictionaries,
