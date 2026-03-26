@@ -6,6 +6,7 @@ class LinuxSyslogParser(BaseParser):
     """
     Parses standard Linux syslog files.
     """
+    FORMAT_NAME = "linux"
     
     LOG_PATTERN = re.compile(
         r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s\d{2}:\d{2}:\d{2})\s+"
@@ -19,8 +20,10 @@ class LinuxSyslogParser(BaseParser):
 
     def parse(self) -> Iterator[Dict[str, Any]]:
         fields = self.get_fields()
-        with open(self.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
+        if not self._file:
+            raise RuntimeError("Parser must be used as a context manager (using 'with').")
+            
+        for line in self._file:
                 match = self.LOG_PATTERN.match(line.strip())
                 res = {f: None for f in fields}
                 if match:

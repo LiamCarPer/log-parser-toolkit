@@ -15,8 +15,8 @@ def sample_weblog():
     os.remove(file_path)
 
 def test_web_log_parser(sample_weblog):
-    parser = WebLogParser(sample_weblog)
-    parsed = list(parser.parse())
+    with WebLogParser(sample_weblog) as parser:
+        parsed = list(parser.parse())
     
     assert len(parsed) == 1
     

@@ -16,8 +16,8 @@ def sample_syslog():
     os.remove(file_path)
 
 def test_linux_syslog_parser(sample_syslog):
-    parser = LinuxSyslogParser(sample_syslog)
-    parsed = list(parser.parse())
+    with LinuxSyslogParser(sample_syslog) as parser:
+        parsed = list(parser.parse())
     
     assert len(parsed) == 2
     

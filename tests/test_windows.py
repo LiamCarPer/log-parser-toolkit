@@ -16,8 +16,8 @@ def sample_windowslog():
     os.remove(file_path)
 
 def test_windows_log_parser(sample_windowslog):
-    parser = WindowsLogParser(sample_windowslog)
-    parsed = list(parser.parse())
+    with WindowsLogParser(sample_windowslog) as parser:
+        parsed = list(parser.parse())
     
     assert len(parsed) == 1
     

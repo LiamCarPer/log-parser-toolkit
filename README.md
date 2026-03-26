@@ -42,9 +42,11 @@ graph TD
 ## Features
 
 - **Memory Efficient (Streaming):** Parses logs line-by-line using Python Generators (`yield`). Can process multi-gigabyte log files without crashing or hogging RAM.
+- **Resource Management:** Employs Python Context Managers (`with` magic methods) to strictly secure file handles and prevent I/O leaks on errors.
+- **Dead-Letter Queue Support:** Robust error handling gracefully routes malformed or unmatched log lines to a separate `--error-file` without corrupting the primary structured data export.
+- **Schema Validation & Typing:** Hardened ingestion process validates input structures (e.g., CSV headers) before parsing to guarantee downstream data integrity.
+- **Dynamic Plugin Factory (Open-Closed Principle):** New parsers added to the `parsers/` directory are auto-discovered via subclass introspection and immediately available via the CLI without modifying the core logic.
 - **Dependency-Free Core:** Uses only standard library modules (`json`, `csv`, `re`) for parsing and writing. No heavy third-party dependencies required.
-- **Modular Architecture:** Utilizes a `BaseParser` interface, making it trivial to extend the tool to support new, custom log formats without altering core logic.
-- **Professional Logging:** Built-in Python `logging` module support for debug and info messages.
 - **CI/CD Pipeline:** Fully integrated with GitHub Actions to run automated `pytest` suites on every push.
 
 ## Supported Formats
@@ -94,15 +96,17 @@ pip install -e .
 Once installed, you can use the `log-parser` command anywhere inside your virtual environment.
 
 ```bash
-log-parser --input <path_to_log> --format <linux|web|windows> --output <path_to_output> --type <json|csv> [--verbose]
+log-parser --input <path_to_log> --format <format_name> --output <path_to_output> --type <json|csv> [--strict] [--error-file <path>]
 ```
 
 ### Arguments:
 
 - `--input`: Path to the input log file.
-- `--format`: Format of the input log file (`linux`, `web`, or `windows`).
+- `--format`: Format of the log file. Dynamically discovers available parsers (e.g., `linux`, `web`, `windows`).
 - `--output`: Path to save the parsed output file.
 - `--type`: Desired output file type (`json` or `csv`).
+- `--error-file`: (Optional) Path to save unmatched log lines (dead-letter file) to keep primary output clean.
+- `--strict`: (Optional) If enabled, stop execution and fail immediately on the first unmatched line.
 - `--verbose`: (Optional) Enable debug-level logging.
 
 ## Examples
