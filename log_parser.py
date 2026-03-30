@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--output", required=True, help="Path to the output file.")
     parser.add_argument("--type", required=True, choices=["json", "csv"], help="Output file type (json or csv).")
     parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
+    parser.add_argument("--encoding", help="Optional encoding for the input log file (e.g., utf-8, latin-1).", default=None)
     parser.add_argument("--strict", action="store_true", help="If enabled, stop execution on first unmatched line.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging.")
 
@@ -31,7 +32,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     try:
-        parser_instance = get_parser(args.format, args.input)
+        parser_instance = get_parser(args.format, args.input, encoding=args.encoding)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)

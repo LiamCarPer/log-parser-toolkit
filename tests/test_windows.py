@@ -1,22 +1,13 @@
-import os
-import tempfile
 import pytest
 from parsers.windows import WindowsLogParser
 
-@pytest.fixture
-def sample_windowslog():
+def test_windows_log_parser_success(tmp_path):
+    p = tmp_path / "sample_windows.csv"
     content = 'TimeCreated,Id,LevelDisplayName,ProviderName,Message\n'
     content += '"3/22/2026 10:15:00 AM",4624,Information,Microsoft-Windows-Security-Auditing,"An account was successfully logged on."\n'
+    p.write_text(content)
     
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write(content)
-        file_path = f.name
-    
-    yield file_path
-    os.remove(file_path)
-
-def test_windows_log_parser(sample_windowslog):
-    with WindowsLogParser(sample_windowslog) as parser:
+    with WindowsLogParser(str(p)) as parser:
         parsed = list(parser.parse())
     
     assert len(parsed) == 1
@@ -26,3 +17,17 @@ def test_windows_log_parser(sample_windowslog):
     assert parsed[0]['LevelDisplayName'] == 'Information'
     assert parsed[0]['ProviderName'] == 'Microsoft-Windows-Security-Auditing'
     assert parsed[0]['Message'] == 'An account was successfully logged on.'
+
+def test_windows_log_parser_invalid_schema(tmp_path):
+    p = tmp_path / "invalid_schema.csv"
+    # Missing 'Message' column
+    content = 'TimeCreated,Id,LevelDisplayName,ProviderName\n'
+    content += '"3/22/2026 10:15:00 AM",4624,Information,Microsoft-Windows-Security-Auditing\n'
+    p.write_text(content)
+    
+    with WindowsLogParser(str(p)) as parser:
+        with pytest.raises(ValueError) as excinfo:
+            parser.get_fields()
+        
+        assert "Missing columns" in str(excinfo.value)
+        assert "Message" in str(excinfo.value)

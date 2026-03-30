@@ -1,3 +1,4 @@
+from typing import Optional
 from .base import BaseParser
 from .linux import LinuxSyslogParser
 from .web import WebLogParser
@@ -13,11 +14,11 @@ def get_available_parsers():
             parsers[cls.FORMAT_NAME] = cls
     return parsers
 
-def get_parser(format_name: str, file_path: str) -> BaseParser:
+def get_parser(format_name: str, file_path: str, encoding: Optional[str] = None) -> BaseParser:
     """
     Factory function to instantiate the correct parser.
     """
     parsers = get_available_parsers()
     if format_name not in parsers:
         raise ValueError(f"Unknown format '{format_name}'. Available formats: {list(parsers.keys())}")
-    return parsers[format_name](file_path)
+    return parsers[format_name](file_path, encoding=encoding)

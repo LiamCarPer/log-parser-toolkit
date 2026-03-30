@@ -1,21 +1,12 @@
-import os
-import tempfile
 import pytest
 from parsers.web import WebLogParser
 
-@pytest.fixture
-def sample_weblog():
+def test_web_log_parser_success(tmp_path):
+    p = tmp_path / "sample_web.log"
     content = '127.0.0.1 - - [22/Mar/2026:10:15:00 +0000] "GET /index.html HTTP/1.1" 200 1024 "-" "Mozilla/5.0"\n'
+    p.write_text(content)
     
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write(content)
-        file_path = f.name
-    
-    yield file_path
-    os.remove(file_path)
-
-def test_web_log_parser(sample_weblog):
-    with WebLogParser(sample_weblog) as parser:
+    with WebLogParser(str(p)) as parser:
         parsed = list(parser.parse())
     
     assert len(parsed) == 1
@@ -29,3 +20,14 @@ def test_web_log_parser(sample_weblog):
     assert parsed[0]['bytes'] == '1024'
     assert parsed[0]['referer'] == '-'
     assert parsed[0]['user_agent'] == 'Mozilla/5.0'
+
+def test_web_log_parser_unmatched(tmp_path):
+    p = tmp_path / "malformed.log"
+    p.write_text("This is not a web log line\n")
+    
+    with WebLogParser(str(p)) as parser:
+        parsed = list(parser.parse())
+    
+    assert len(parsed) == 1
+    assert parsed[0]['error'] == 'unmatched'
+    assert parsed[0]['raw_line'] == "This is not a web log line"

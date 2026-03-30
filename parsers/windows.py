@@ -1,5 +1,5 @@
 import csv
-from typing import Iterator, Dict, Any
+from typing import Iterator, Dict, Any, List, Optional
 from .base import BaseParser
 
 class WindowsLogParser(BaseParser):
@@ -9,11 +9,12 @@ class WindowsLogParser(BaseParser):
     FORMAT_NAME = "windows"
     REQUIRED_COLUMNS = {"TimeCreated", "Id", "LevelDisplayName", "ProviderName", "Message"}
 
-    def __init__(self, file_path: str):
-        super().__init__(file_path)
-        self.encoding = 'utf-8-sig'
+    def __init__(self, file_path: str, encoding: Optional[str] = None):
+        super().__init__(file_path, encoding=encoding)
+        if not encoding:
+            self.encoding = 'utf-8-sig'
 
-    def get_fields(self) -> list[str]:
+    def get_fields(self) -> List[str]:
         with open(self.file_path, 'r', encoding=self.encoding, errors='ignore') as f:
             reader = csv.reader(f)
             header = next(reader, [])

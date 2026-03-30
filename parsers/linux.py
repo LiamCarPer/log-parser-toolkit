@@ -1,5 +1,5 @@
 import re
-from typing import Iterator, Dict, Any
+from typing import Iterator, Dict, Any, List
 from .base import BaseParser
 
 class LinuxSyslogParser(BaseParser):
@@ -15,7 +15,7 @@ class LinuxSyslogParser(BaseParser):
         r"(?P<message>.*)$"
     )
 
-    def get_fields(self) -> list[str]:
+    def get_fields(self) -> List[str]:
         return ["timestamp", "hostname", "process", "pid", "message", "raw_line", "error"]
 
     def parse(self) -> Iterator[Dict[str, Any]]:

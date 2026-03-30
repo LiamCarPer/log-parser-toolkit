@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Iterator, Dict, Any
+from typing import Iterator, Dict, Any, List, Optional
 import os
 
 class BaseParser(ABC):
@@ -9,12 +9,12 @@ class BaseParser(ABC):
     
     FORMAT_NAME = ""
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, encoding: Optional[str] = None):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Log file not found: {file_path}")
         self.file_path = file_path
         self._file = None
-        self.encoding = 'utf-8'
+        self.encoding = encoding if encoding else 'utf-8'
 
     def __enter__(self):
         self._file = open(self.file_path, 'r', encoding=self.encoding, errors='ignore')
@@ -24,7 +24,7 @@ class BaseParser(ABC):
         if self._file:
             self._file.close()
     @abstractmethod
-    def get_fields(self) -> list[str]:
+    def get_fields(self) -> List[str]:
         """
         Returns the list of field names that this parser produces.
         """

@@ -1,22 +1,15 @@
-import os
-import tempfile
 import pytest
 from parsers.linux import LinuxSyslogParser
 
-@pytest.fixture
-def sample_syslog():
+def test_linux_syslog_parser_success(tmp_path):
+    d = tmp_path / "logs"
+    d.mkdir()
+    p = d / "sample_syslog.log"
     content = "Mar 22 10:15:30 server1 sshd[1234]: Accepted publickey for user1 from 192.168.1.100 port 50432 ssh2\n"
     content += "Mar 22 10:20:45 server2 kernel: [ 1234.567890] iptables denied: IN=eth0 OUT=\n"
+    p.write_text(content)
     
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write(content)
-        file_path = f.name
-    
-    yield file_path
-    os.remove(file_path)
-
-def test_linux_syslog_parser(sample_syslog):
-    with LinuxSyslogParser(sample_syslog) as parser:
+    with LinuxSyslogParser(str(p)) as parser:
         parsed = list(parser.parse())
     
     assert len(parsed) == 2
@@ -32,3 +25,14 @@ def test_linux_syslog_parser(sample_syslog):
     assert parsed[1]['process'] == 'kernel'
     assert parsed[1]['pid'] is None
     assert parsed[1]['message'] == '[ 1234.567890] iptables denied: IN=eth0 OUT='
+
+def test_linux_syslog_parser_unmatched(tmp_path):
+    p = tmp_path / "malformed.log"
+    p.write_text("This is not a syslog line\n")
+    
+    with LinuxSyslogParser(str(p)) as parser:
+        parsed = list(parser.parse())
+    
+    assert len(parsed) == 1
+    assert parsed[0]['error'] == 'unmatched'
+    assert parsed[0]['raw_line'] == "This is not a syslog line"

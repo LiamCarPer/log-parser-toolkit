@@ -1,5 +1,5 @@
 import re
-from typing import Iterator, Dict, Any
+from typing import Iterator, Dict, Any, List
 from .base import BaseParser
 
 class WebLogParser(BaseParser):
@@ -20,7 +20,7 @@ class WebLogParser(BaseParser):
         r'"(?P<user_agent>[^"]*)"$'
     )
 
-    def get_fields(self) -> list[str]:
+    def get_fields(self) -> List[str]:
         return ["ip", "ident", "user", "timestamp", "request", "status", "bytes", "referer", "user_agent", "raw_line", "error"]
 
     def parse(self) -> Iterator[Dict[str, Any]]:
