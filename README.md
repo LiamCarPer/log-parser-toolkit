@@ -32,22 +32,25 @@ graph TD
     C -->|Format: linux| D[LinuxSyslogParser]
     C -->|Format: web| E[WebLogParser]
     C -->|Format: windows| F[WindowsLogParser]
-    D -->|Yields Dict| G[Streaming Writer]
+    D -->|Yields Dict| G[Security Analyzer]
     E -->|Yields Dict| G
     F -->|Yields Dict| G
-    G -->|Export| H(Structured JSON)
-    G -->|Export| I(Structured CSV)
+    G -->|Enriches Dict| H[Streaming Writer]
+    H -->|Export| I(Structured JSON)
+    H -->|Export| J(Structured CSV)
+    G -->|Alert| K(High-Fidelity Alerts)
 ```
 
 ## Features
 
 - **Memory Efficient (Streaming):** Parses logs line-by-line using Python Generators (`yield`). Can process multi-gigabyte log files without crashing or hogging RAM.
+- **Stateful Security Analysis:** Implements a middle-ware processing layer that evaluates logs against security rules (e.g., SSH Brute Force, Web Scanning) using a rolling time window.
+- **AbuseIPDB Threat Intelligence:** Seamlessly enriches log data with IP reputation scores from the AbuseIPDB API. Features a local **Threat Intel Cache** to ensure high performance and prevent API rate-limiting.
+- **High-Fidelity Alert Routing:** Automatically identifies and routes security-critical events to a dedicated `--alert-file`, allowing analysts to focus on verified threats without sifting through millions of benign logs.
 - **Resource Management:** Employs Python Context Managers (`with` magic methods) to strictly secure file handles and prevent I/O leaks on errors.
 - **Dead-Letter Queue Support:** Robust error handling gracefully routes malformed or unmatched log lines to a separate `--error-file` without corrupting the primary structured data export.
-- **Schema Validation & Typing:** Hardened ingestion process validates input structures (e.g., CSV headers) before parsing to guarantee downstream data integrity.
-- **Dynamic Plugin Factory (Open-Closed Principle):** New parsers added to the `parsers/` directory are auto-discovered via subclass introspection and immediately available via the CLI without modifying the core logic.
-- **Dependency-Free Core:** Uses only standard library modules (`json`, `csv`, `re`) for parsing and writing. No heavy third-party dependencies required.
-- **CI/CD Pipeline:** Fully integrated with GitHub Actions to run automated `pytest` suites on every push.
+- **Dynamic Plugin Factory:** New parsers added to the `parsers/` directory are auto-discovered via subclass introspection and immediately available via the CLI.
+- **Dependency-Free Core:** Uses only standard library modules (`json`, `csv`, `re`, `urllib`) for parsing, analysis, and network communication. No heavy third-party dependencies required.
 
 ## Supported Formats
 
@@ -96,48 +99,42 @@ pip install -e .
 Once installed, you can use the `log-parser` command anywhere inside your virtual environment.
 
 ```bash
-log-parser --input <path_to_log> --format <format_name> --output <path_to_output> --type <json|csv> [--strict] [--error-file <path>]
+log-parser --input <path_to_log> --format <format_name> --output <path_to_output> --type <json|csv> [options]
 ```
 
 ### Arguments:
 
 - `--input`: Path to the input log file.
-- `--format`: Format of the log file. Dynamically discovers available parsers (e.g., `linux`, `web`, `windows`).
+- `--format`: Format of the log file (e.g., `linux`, `web`, `windows`).
 - `--output`: Path to save the parsed output file.
 - `--type`: Desired output file type (`json` or `csv`).
-- `--error-file`: (Optional) Path to save unmatched log lines (dead-letter file) to keep primary output clean.
-- `--strict`: (Optional) If enabled, stop execution and fail immediately on the first unmatched line.
+- `--alert-file`: (Optional) Path to save security-critical events (alerts).
+- `--abuseipdb-key`: (Optional) Your AbuseIPDB API key for automatic threat scoring.
+- `--error-file`: (Optional) Path to save unmatched log lines.
+- `--strict`: (Optional) Fail immediately on the first unmatched line.
 - `--verbose`: (Optional) Enable debug-level logging.
 
 ## Examples
 
-The toolkit includes sample log files in the `samples/` directory to demonstrate functionality.
-
-### 1. Parsing Linux Syslog to JSON
-
-**Command:**
+### 1. Basic Syslog Parsing to JSON
 ```bash
-log-parser --input samples/sample_syslog.log --format linux --output output_syslog.json --type json
+log-parser --input samples/sample_syslog.log --format linux --output output.json --type json
 ```
 
-### 2. Parsing Apache/Nginx Web Logs to CSV
-
-**Command:**
+### 2. Full Security Analysis with Threat Intel
 ```bash
-log-parser --input samples/sample_apache.log --format web --output output_apache.csv --type csv
+log-parser --input logs/auth.log --format linux --output full_data.csv --type csv --alert-file critical_alerts.csv --abuseipdb-key YOUR_API_KEY
 ```
 
 ## Testing
 
-The project uses `pytest` for unit testing the regex patterns and parser logic. 
+The project uses `pytest` for unit testing the regex patterns, parser logic, and the security analyzer middleware.
 
-To install test dependencies and run the test suite:
-
+To run the full test suite:
 ```bash
-pip install -e .[test]
 pytest tests/
 ```
 
 ## Future Enhancements
 - **Database Export:** Add direct insertion to SQLite or PostgreSQL databases using SQLAlchemy.
-- **Threat Intelligence:** Integrate an optional flag to cross-reference extracted IP addresses against public threat intelligence feeds.
+- **Web UI:** Create a lightweight dashboard for visualizing security alerts and log trends.

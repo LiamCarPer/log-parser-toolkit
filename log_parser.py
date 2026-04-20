@@ -4,6 +4,7 @@ import json
 import csv
 import logging
 from parsers import get_parser, get_available_parsers
+from analyzer import StatefulSecurityAnalyzer
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,8 @@ def main():
     parser.add_argument("--output", required=True, help="Path to the output file.")
     parser.add_argument("--type", required=True, choices=["json", "csv"], help="Output file type (json or csv).")
     parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
+    parser.add_argument("--alert-file", help="Path to save detected security alerts.")
+    parser.add_argument("--abuseipdb-key", help="Optional API key for AbuseIPDB threat intelligence.")
     parser.add_argument("--encoding", help="Optional encoding for the input log file (e.g., utf-8, latin-1).", default=None)
     parser.add_argument("--strict", action="store_true", help="If enabled, stop execution on first unmatched line.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging.")
@@ -40,6 +43,8 @@ def main():
     try:
         logger.info(f"Parsing {args.format} log file: {args.input}")
         
+        analyzer = StatefulSecurityAnalyzer(abuseipdb_key=args.abuseipdb_key)
+
         with parser_instance as current_parser:
             parsed_iterator = current_parser.parse()
             
@@ -54,53 +59,103 @@ def main():
 
             matched_count = 0
             unmatched_count = 0
+            alert_count = 0
             import itertools
             all_rows = itertools.chain([first_item], parsed_iterator)
 
+            fields = current_parser.get_fields()
+            extended_fields = fields + ["is_alert", "alert_reason", "details", "threat_score"]
+
             if args.type == "csv":
-                fields = current_parser.get_fields()
                 with open(args.output, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=fields)
+                    writer = csv.DictWriter(f, fieldnames=extended_fields)
                     writer.writeheader()
-                    for row in all_rows:
-                        if row.get("error"):
-                            unmatched_count += 1
-                            if args.strict:
-                                logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
-                                if error_f: error_f.close()
-                                sys.exit(1)
-                            if error_f:
-                                error_f.write(row.get('raw_line', '') + "\n")
-                        else:
-                            matched_count += 1
-                        writer.writerow(row)
+                    
+                    alert_f = None
+                    alert_writer = None
+                    if args.alert_file:
+                        alert_f = open(args.alert_file, 'w', newline='', encoding='utf-8')
+                        alert_writer = csv.DictWriter(alert_f, fieldnames=extended_fields)
+                        alert_writer.writeheader()
+
+                    try:
+                        for row in all_rows:
+                            if row.get("error"):
+                                unmatched_count += 1
+                                if args.strict:
+                                    logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
+                                    if error_f: error_f.close()
+                                    if alert_f: alert_f.close()
+                                    sys.exit(1)
+                                if error_f:
+                                    error_f.write(row.get('raw_line', '') + "\n")
+                            else:
+                                matched_count += 1
+                                # Apply security analysis
+                                row = analyzer.analyze(row)
+                                if row.get("is_alert"):
+                                    alert_count += 1
+                                    if alert_writer:
+                                        alert_writer.writerow(row)
+                            
+                            writer.writerow(row)
+                    finally:
+                        if alert_f: alert_f.close()
                 
                 logger.info(f"Successfully processed {matched_count + unmatched_count} records.")
                 logger.info(f" - Saved to CSV: {args.output}")
+                if alert_count > 0:
+                    logger.warning(f" - Found {alert_count} security alerts! Saved to: {args.alert_file}")
 
             elif args.type == "json":
                 with open(args.output, 'w', encoding='utf-8') as f:
                     f.write('[\n')
-                    is_first = True
-                    for row in all_rows:
-                        if row.get("error"):
-                            unmatched_count += 1
-                            if args.strict:
-                                logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
-                                if error_f: error_f.close()
-                                sys.exit(1)
-                            if error_f:
-                                error_f.write(row.get('raw_line', '') + "\n")
-                        else:
-                            matched_count += 1
-                        
-                        if not is_first:
-                            f.write(',\n')
-                        f.write('    ' + json.dumps(row))
-                        is_first = False
-                    f.write('\n]\n')
+                    
+                    alert_f = None
+                    if args.alert_file:
+                        alert_f = open(args.alert_file, 'w', encoding='utf-8')
+                        alert_f.write('[\n')
+
+                    is_first_out = True
+                    is_first_alert = True
+                    
+                    try:
+                        for row in all_rows:
+                            if row.get("error"):
+                                unmatched_count += 1
+                                if args.strict:
+                                    logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
+                                    if error_f: error_f.close()
+                                    if alert_f: alert_f.close()
+                                    sys.exit(1)
+                                if error_f:
+                                    error_f.write(row.get('raw_line', '') + "\n")
+                            else:
+                                matched_count += 1
+                                # Apply security analysis
+                                row = analyzer.analyze(row)
+                                if row.get("is_alert"):
+                                    alert_count += 1
+                                    if alert_f:
+                                        if not is_first_alert:
+                                            alert_f.write(',\n')
+                                        alert_f.write('    ' + json.dumps(row))
+                                        is_first_alert = False
+                            
+                            if not is_first_out:
+                                f.write(',\n')
+                            f.write('    ' + json.dumps(row))
+                            is_first_out = False
+                    finally:
+                        f.write('\n]\n')
+                        if alert_f:
+                            alert_f.write('\n]\n')
+                            alert_f.close()
+
                 logger.info(f"Successfully processed {matched_count + unmatched_count} records.")
                 logger.info(f" - Saved to JSON: {args.output}")
+                if alert_count > 0:
+                    logger.warning(f" - Found {alert_count} security alerts! Saved to: {args.alert_file}")
 
             if error_f:
                 error_f.close()

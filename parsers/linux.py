@@ -14,9 +14,10 @@ class LinuxSyslogParser(BaseParser):
         r"(?P<process>[a-zA-Z0-9_-]+)(?:\[(?P<pid>\d+)\])?:\s+"
         r"(?P<message>.*)$"
     )
+    IP_REGEX = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
     def get_fields(self) -> List[str]:
-        return ["timestamp", "hostname", "process", "pid", "message", "raw_line", "error"]
+        return ["timestamp", "hostname", "process", "pid", "message", "ip", "raw_line", "error"]
 
     def parse(self) -> Iterator[Dict[str, Any]]:
         fields = self.get_fields()
@@ -28,6 +29,10 @@ class LinuxSyslogParser(BaseParser):
                 res = {f: None for f in fields}
                 if match:
                     res.update(match.groupdict())
+                    # Enrichment: extract IP from message if possible (e.g. for sshd)
+                    ip_match = self.IP_REGEX.search(res['message'])
+                    if ip_match:
+                        res['ip'] = ip_match.group(0)
                 else:
                     res.update({"raw_line": line.strip(), "error": "unmatched"})
                 yield res
