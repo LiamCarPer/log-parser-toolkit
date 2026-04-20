@@ -12,7 +12,10 @@ license = {text = "MIT"}
 authors = [
     {name = "Liam", email = "carvajalperezliam7@gmail.com~"}
 ]
-dependencies = []
+dependencies = [
+    "geoip2>=4.8.0",
+    "rich>=13.7.0"
+]
 
 [project.scripts]
 log-parser = "log_parser:main"

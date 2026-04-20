@@ -47,9 +47,13 @@ graph TD
 - **Transparent Decompression:** Natively handles `.gz` files. Automatically detects and decompresses log archives on-the-fly without requiring manual extraction.
 - **Live Pipeline Integration:** Fully supports Standard Input (`stdin`) using the `-` flag, enabling seamless integration with tools like `tail -f`, `grep`, and `awk` for real-time log analysis.
 - **Temporal Normalization:** Automatically converts disparate vendor-specific timestamps (Syslog, Apache, Windows) into a unified, strict **ISO 8601** UTC format for easy SIEM correlation.
+- **Offline GeoIP & ASN Mapping:** Automatically enriches IP addresses with geographical metadata (Country, City) and Network information (ASN/ISP) using local MaxMind databases for high-speed offline analysis.
+- **User-Agent Anomaly Flagging:** Inspects web logs to flag suspicious, malformed, or weaponized user agents (e.g., `sqlmap`, `nmap`) and detects potentially malicious requests with missing headers.
+- **Direct SQL Export:** Natively supports exporting parsed logs directly to a **SQLite** database (`--type db`), enabling complex relational queries and advanced threat hunting using standard SQL.
 - **Stateful Security Analysis:** Implements a middle-ware processing layer that evaluates logs against security rules (e.g., SSH Brute Force, Web Scanning) using a rolling time window.
 - **AbuseIPDB Threat Intelligence:** Seamlessly enriches log data with IP reputation scores from the AbuseIPDB API. Features a local **Threat Intel Cache** to ensure high performance.
 - **High-Fidelity Alert Routing:** Automatically identifies and routes security-critical events to a dedicated `--alert-file`.
+- **Terminal Statistics Dashboard:** Provides immediate situational awareness with a professional, colorized terminal summary showing Top IPs, Status Code distribution, and an Alert breakdown upon completion.
 - **Decoupled Pattern Matching:** Supports loading custom regex patterns from external JSON files, allowing the tool to adapt to bespoke log formats without source code changes.
 
 ## Supported Formats
@@ -107,9 +111,10 @@ log-parser --input <path_to_log> --format <format_name> --output <path_to_output
 - `--input`: Path to the input log file.
 - `--format`: Format of the log file (e.g., `linux`, `web`, `windows`).
 - `--output`: Path to save the parsed output file.
-- `--type`: Desired output file type (`json` or `csv`).
+- `--type`: Desired output file type (`json`, `csv`, or `db` for SQLite).
 - `--alert-file`: (Optional) Path to save security-critical events (alerts).
 - `--abuseipdb-key`: (Optional) Your AbuseIPDB API key for automatic threat scoring.
+- `--geoip-db`: (Optional) Path to your local MaxMind GeoLite2-City.mmdb for IP enrichment.
 - `--error-file`: (Optional) Path to save unmatched log lines.
 - `--strict`: (Optional) Fail immediately on the first unmatched line.
 - `--verbose`: (Optional) Enable debug-level logging.
@@ -121,12 +126,15 @@ log-parser --input <path_to_log> --format <format_name> --output <path_to_output
 log-parser --input samples/sample_syslog.log --format linux --output output.json --type json
 ```
 
-### 2. Live Threat Hunting (stdin)
+### 2. Live Threat Hunting (stdin) to SQLite
 ```bash
-tail -f /var/log/syslog | log-parser --format linux --output live_results.csv --type csv --alert-file alerts.csv
+tail -f /var/log/syslog | log-parser --format linux --output live_forensics.db --type db --alert-file alerts.csv
 ```
 
-### 3. Full Security Analysis with Threat Intel
+### 3. Full Security Analysis with Threat Intel & GeoIP
+```bash
+log-parser --input logs/auth.log --format linux --output full_data.csv --type csv --alert-file critical_alerts.csv --abuseipdb-key YOUR_API_KEY --geoip-db GeoLite2-City.mmdb
+```
 
 ## Testing
 
@@ -136,6 +144,3 @@ To run the full test suite:
 ```bash
 pytest tests/
 ```
-
-## Future Enhancements
-- **Database Export:** Add direct insertion to SQLite or PostgreSQL databases using SQLAlchemy.

@@ -1,9 +1,28 @@
 import pytest
 from datetime import datetime, timedelta
-from analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule
+from analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule
 from analyzer.middleware import StatefulSecurityAnalyzer
 from analyzer.threat_intel import ThreatIntelCache
 from unittest.mock import patch, MagicMock
+
+def test_user_agent_anomaly_rule():
+    rule = UserAgentAnomalyRule()
+    
+    # Normal UA
+    log1 = {"user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    assert rule.evaluate(log1) is None
+    
+    # Suspicious UA
+    log2 = {"user_agent": "sqlmap/1.5.11#stable (https://sqlmap.org)"}
+    alert = rule.evaluate(log2)
+    assert alert is not None
+    assert alert["alert_reason"] == "Suspicious User-Agent"
+    
+    # Empty UA
+    log3 = {"user_agent": "-"}
+    alert = rule.evaluate(log3)
+    assert alert is not None
+    assert alert["alert_reason"] == "Missing User-Agent"
 
 def test_ssh_brute_force_rule():
     rule = SSHBruteForceRule(threshold=3, window_seconds=60)
@@ -62,11 +81,11 @@ def test_analyzer_middleware():
     
     # Test SSH Brute Force through middleware
     logs = [
-        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:00"},
-        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:01"},
-        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:02"},
-        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:03"},
-        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:04"},
+        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:00", "user_agent": "Mozilla/5.0"},
+        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:01", "user_agent": "Mozilla/5.0"},
+        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:02", "user_agent": "Mozilla/5.0"},
+        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:03", "user_agent": "Mozilla/5.0"},
+        {"process": "sshd", "message": "Failed password for user1 from 10.0.0.1", "timestamp": "Mar 22 10:00:04", "user_agent": "Mozilla/5.0"},
     ]
     
     for i, log in enumerate(logs):
@@ -102,10 +121,9 @@ def test_analyzer_with_threat_intel():
     
     with patch("analyzer.threat_intel.ThreatIntelCache.get_threat_score") as mock_get_score:
         mock_get_score.return_value = 90
-        
-        log = {"ip": "1.2.3.4", "status": "200", "timestamp": "22/Mar/2026:10:00:00 +0000"}
+
+        log = {"ip": "1.2.3.4", "status": "200", "timestamp": "22/Mar/2026:10:00:00 +0000", "user_agent": "Mozilla/5.0"}
         enriched = analyzer.analyze(log)
-        
         assert enriched["threat_score"] == 90
         assert enriched["is_alert"] is True
         assert enriched["alert_reason"] == "Known Malicious IP"

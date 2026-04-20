@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from collections import deque
 from datetime import datetime
+from parsers.utils import extract_ip, parse_timestamp
 
 class SecurityRule(ABC):
     """
@@ -14,39 +15,6 @@ class SecurityRule(ABC):
         Evaluates a log record and returns alert details if it matches, else None.
         """
         pass
-
-def extract_ip(text: str) -> Optional[str]:
-    """Helper to extract an IP address from text."""
-    if not text:
-        return None
-    # Simple regex for IPv4
-    match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
-    if match:
-        return match.group(0)
-    return None
-
-def parse_timestamp(ts_str: str) -> datetime:
-    """Helper to parse various timestamp formats into a datetime object."""
-    if not ts_str:
-        return datetime.now()
-    
-    # Try different formats
-    formats = [
-        "%b %d %H:%M:%S",          # Syslog: Mar 22 10:15:30
-        "%d/%b/%Y:%H:%M:%S %z",    # Web: 22/Mar/2026:10:15:00 +0000
-    ]
-    
-    for fmt in formats:
-        try:
-            dt = datetime.strptime(ts_str, fmt)
-            # If no year is present (syslog), assume current year
-            if dt.year == 1900:
-                dt = dt.replace(year=datetime.now().year)
-            return dt
-        except ValueError:
-            continue
-    
-    return datetime.now()
 
 class SSHBruteForceRule(SecurityRule):
     """
@@ -142,4 +110,32 @@ class WebScanningRule(SecurityRule):
                         "alert_reason": "Web Directory Scanning",
                         "details": f"Detected {len(errors)} error responses (4xx/5xx) from {ip} within {self.window_seconds}s"
                     }
+        return None
+
+class UserAgentAnomalyRule(SecurityRule):
+    """
+    Rule 4 (Anomaly Detection): Flagging suspicious or weaponized user agents.
+    """
+    SUSPICIOUS_UA = {
+        'sqlmap', 'nmap', 'nikto', 'dirbuster', 'gobuster', 
+        'python-requests', 'curl', 'zgrab', 'masscan'
+    }
+
+    def evaluate(self, log: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        ua = log.get('user_agent', '')
+        if not ua or ua == '-':
+            return {
+                "is_alert": True,
+                "alert_reason": "Missing User-Agent",
+                "details": "Request sent with missing or empty User-Agent string."
+            }
+        
+        ua_lower = ua.lower()
+        for suspect in self.SUSPICIOUS_UA:
+            if suspect in ua_lower:
+                return {
+                    "is_alert": True,
+                    "alert_reason": "Suspicious User-Agent",
+                    "details": f"Detected potential automated tool/scanner: {suspect}"
+                }
         return None
