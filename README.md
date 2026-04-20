@@ -44,13 +44,13 @@ graph TD
 ## Features
 
 - **Memory Efficient (Streaming):** Parses logs line-by-line using Python Generators (`yield`). Can process multi-gigabyte log files without crashing or hogging RAM.
+- **Transparent Decompression:** Natively handles `.gz` files. Automatically detects and decompresses log archives on-the-fly without requiring manual extraction.
+- **Live Pipeline Integration:** Fully supports Standard Input (`stdin`) using the `-` flag, enabling seamless integration with tools like `tail -f`, `grep`, and `awk` for real-time log analysis.
+- **Temporal Normalization:** Automatically converts disparate vendor-specific timestamps (Syslog, Apache, Windows) into a unified, strict **ISO 8601** UTC format for easy SIEM correlation.
 - **Stateful Security Analysis:** Implements a middle-ware processing layer that evaluates logs against security rules (e.g., SSH Brute Force, Web Scanning) using a rolling time window.
-- **AbuseIPDB Threat Intelligence:** Seamlessly enriches log data with IP reputation scores from the AbuseIPDB API. Features a local **Threat Intel Cache** to ensure high performance and prevent API rate-limiting.
-- **High-Fidelity Alert Routing:** Automatically identifies and routes security-critical events to a dedicated `--alert-file`, allowing analysts to focus on verified threats without sifting through millions of benign logs.
-- **Resource Management:** Employs Python Context Managers (`with` magic methods) to strictly secure file handles and prevent I/O leaks on errors.
-- **Dead-Letter Queue Support:** Robust error handling gracefully routes malformed or unmatched log lines to a separate `--error-file` without corrupting the primary structured data export.
-- **Dynamic Plugin Factory:** New parsers added to the `parsers/` directory are auto-discovered via subclass introspection and immediately available via the CLI.
-- **Dependency-Free Core:** Uses only standard library modules (`json`, `csv`, `re`, `urllib`) for parsing, analysis, and network communication. No heavy third-party dependencies required.
+- **AbuseIPDB Threat Intelligence:** Seamlessly enriches log data with IP reputation scores from the AbuseIPDB API. Features a local **Threat Intel Cache** to ensure high performance.
+- **High-Fidelity Alert Routing:** Automatically identifies and routes security-critical events to a dedicated `--alert-file`.
+- **Decoupled Pattern Matching:** Supports loading custom regex patterns from external JSON files, allowing the tool to adapt to bespoke log formats without source code changes.
 
 ## Supported Formats
 
@@ -121,10 +121,12 @@ log-parser --input <path_to_log> --format <format_name> --output <path_to_output
 log-parser --input samples/sample_syslog.log --format linux --output output.json --type json
 ```
 
-### 2. Full Security Analysis with Threat Intel
+### 2. Live Threat Hunting (stdin)
 ```bash
-log-parser --input logs/auth.log --format linux --output full_data.csv --type csv --alert-file critical_alerts.csv --abuseipdb-key YOUR_API_KEY
+tail -f /var/log/syslog | log-parser --format linux --output live_results.csv --type csv --alert-file alerts.csv
 ```
+
+### 3. Full Security Analysis with Threat Intel
 
 ## Testing
 
@@ -137,4 +139,3 @@ pytest tests/
 
 ## Future Enhancements
 - **Database Export:** Add direct insertion to SQLite or PostgreSQL databases using SQLAlchemy.
-- **Web UI:** Create a lightweight dashboard for visualizing security alerts and log trends.

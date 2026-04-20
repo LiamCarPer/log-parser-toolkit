@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description="Log Parser Toolkit: Parse logs into structured JSON or CSV.")
-    parser.add_argument("--input", required=True, help="Path to the input log file.")
+    parser.add_argument("--input", default="-", help="Path to the input log file. Use '-' for stdin (default).")
     
     available_formats = list(get_available_parsers().keys())
     parser.add_argument("--format", required=True, choices=available_formats, help="Format of the input log file.")
@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
     parser.add_argument("--alert-file", help="Path to save detected security alerts.")
     parser.add_argument("--abuseipdb-key", help="Optional API key for AbuseIPDB threat intelligence.")
+    parser.add_argument("--pattern-file", help="Optional JSON file containing custom regex patterns.")
+    parser.add_argument("--pattern-name", help="Name of the pattern to load from the pattern file.")
     parser.add_argument("--encoding", help="Optional encoding for the input log file (e.g., utf-8, latin-1).", default=None)
     parser.add_argument("--strict", action="store_true", help="If enabled, stop execution on first unmatched line.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging.")
@@ -34,14 +36,31 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
+    custom_pattern = None
+    if args.pattern_file:
+        if not args.pattern_name:
+            logger.error("--pattern-name is required when using --pattern-file")
+            sys.exit(1)
+        try:
+            with open(args.pattern_file, 'r') as f:
+                patterns = json.load(f)
+                custom_pattern = patterns.get(args.pattern_name)
+                if not custom_pattern:
+                    logger.error(f"Pattern '{args.pattern_name}' not found in {args.pattern_file}")
+                    sys.exit(1)
+        except Exception as e:
+            logger.error(f"Error loading pattern file: {e}")
+            sys.exit(1)
+
     try:
-        parser_instance = get_parser(args.format, args.input, encoding=args.encoding)
+        parser_instance = get_parser(args.format, args.input, encoding=args.encoding, custom_pattern=custom_pattern)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
 
     try:
-        logger.info(f"Parsing {args.format} log file: {args.input}")
+        input_desc = "Standard Input" if args.input == "-" else args.input
+        logger.info(f"Parsing {args.format} logs from {input_desc}")
         
         analyzer = StatefulSecurityAnalyzer(abuseipdb_key=args.abuseipdb_key)
 

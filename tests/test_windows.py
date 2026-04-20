@@ -12,7 +12,7 @@ def test_windows_log_parser_success(tmp_path):
     
     assert len(parsed) == 1
     
-    assert parsed[0]['TimeCreated'] == '3/22/2026 10:15:00 AM'
+    assert parsed[0]['TimeCreated'] == '2026-03-22T10:15:00Z'
     assert parsed[0]['Id'] == '4624'
     assert parsed[0]['LevelDisplayName'] == 'Information'
     assert parsed[0]['ProviderName'] == 'Microsoft-Windows-Security-Auditing'
