@@ -17,9 +17,9 @@ This toolkit was built to demonstrate clean software architecture, advanced regu
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Security Analysis Engine](#security-analysis-engine)
 - [Examples](#examples)
 - [Testing](#testing)
-- [Future Enhancements](#future-enhancements)
 
 ## Architecture
 
@@ -112,12 +112,50 @@ log-parser --input <path_to_log> --format <format_name> --output <path_to_output
 - `--format`: Format of the log file (e.g., `linux`, `web`, `windows`).
 - `--output`: Path to save the parsed output file.
 - `--type`: Desired output file type (`json`, `csv`, or `db` for SQLite).
+- `--analyze`: (Optional) Enable the stateful security analysis engine.
 - `--alert-file`: (Optional) Path to save security-critical events (alerts).
 - `--abuseipdb-key`: (Optional) Your AbuseIPDB API key for automatic threat scoring.
 - `--geoip-db`: (Optional) Path to your local MaxMind GeoLite2-City.mmdb for IP enrichment.
 - `--error-file`: (Optional) Path to save unmatched log lines.
 - `--strict`: (Optional) Fail immediately on the first unmatched line.
 - `--verbose`: (Optional) Enable debug-level logging.
+
+## Security Analysis Engine
+
+The toolkit features a stateful security analysis engine (enabled via `--analyze`) that performs real-time threat detection and enrichment. 
+
+The engine operates on a **middleware pattern**, intercepting log records between the parsing and output stages. Analysis is **stateful**, meaning it doesn't just look at single lines in isolation; it maintains a sliding-window memory buffer (`deque`) to correlate events (like login failures or 404 spikes) over time.
+
+### Detection Rules
+
+1.  **SSH Brute Force (`SSHBruteForceRule`)**: Detects 5+ failed logins from the same IP within a 60-second window.
+2.  **Privilege Escalation (`PrivilegeEscalationRule`)**: Flags suspicious `sudo` usage, specifically attempts to escalate to `root` or spawn `/bin/bash`.
+3.  **Web Directory Scanning (`WebScanningRule`)**: Identifies IPs generating a high volume (10+) of `404` or `5xx` error responses within 60 seconds.
+4.  **Suspicious User-Agent (`UserAgentAnomalyRule`)**: Detects weaponized or automated tools such as `sqlmap`, `nmap`, `nikto`, and `dirbuster`.
+5.  **Windows Brute Force (`WindowsFailedLogonRule`)**: Detects bursts of Windows Event ID `4625` (Audit Failure) for specific accounts.
+
+### Real-world Alert Output (JSON)
+
+When an alert is triggered, the engine enriches the log entry with detailed security metadata:
+
+```json
+{
+  "timestamp": "2026-03-22T10:20:00Z",
+  "ip": "45.12.34.56",
+  "status": "404",
+  "user_agent": "sqlmap/1.5",
+  "is_alert": true,
+  "alert_reason": "Web Directory Scanning; Suspicious User-Agent; Known Malicious IP",
+  "details": "Detected 10 error responses within 60s; Detected potential automated tool: sqlmap; IP has high AbuseIPDB score: 95",
+  "threat_score": 95,
+  "country": "Netherlands",
+  "alerts": [
+    { "alert_reason": "Web Directory Scanning", "details": "..." },
+    { "alert_reason": "Suspicious User-Agent", "details": "..." },
+    { "alert_reason": "Known Malicious IP", "details": "..." }
+  ]
+}
+```
 
 ## Examples
 
@@ -133,7 +171,12 @@ tail -f /var/log/syslog | log-parser --format linux --output live_forensics.db -
 
 ### 3. Full Security Analysis with Threat Intel & GeoIP
 ```bash
-log-parser --input logs/auth.log --format linux --output full_data.csv --type csv --alert-file critical_alerts.csv --abuseipdb-key YOUR_API_KEY --geoip-db GeoLite2-City.mmdb
+log-parser --input logs/auth.log --format linux --output full_data.csv --type csv --analyze --alert-file critical_alerts.csv --abuseipdb-key YOUR_API_KEY --geoip-db GeoLite2-City.mmdb
+```
+
+### 4. Windows Event Log Ingestion to SQLite
+```bash
+log-parser --input samples/sample_windows.csv --format windows --output audit_report.db --type db --analyze
 ```
 
 ## Testing

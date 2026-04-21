@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule
+from analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule, WindowsFailedLogonRule
 from analyzer.middleware import StatefulSecurityAnalyzer
 from analyzer.threat_intel import ThreatIntelCache
 from unittest.mock import patch, MagicMock
@@ -91,10 +91,60 @@ def test_analyzer_middleware():
     for i, log in enumerate(logs):
         enriched = analyzer.analyze(log)
         if i < 4:
-            assert "is_alert" not in enriched
+            assert len(enriched.get("alerts", [])) == 0
         else:
             assert enriched["is_alert"] is True
-            assert enriched["alert_reason"] == "SSH Brute Force"
+            assert any(a["alert_reason"] == "SSH Brute Force" for a in enriched["alerts"])
+
+def test_multi_alert_logic():
+    analyzer = StatefulSecurityAnalyzer()
+    
+    # Log that triggers both Web Scanning (after previous hits) and User Agent Anomaly
+    # First, populate some 404s
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:00 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:01 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:02 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:03 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:04 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:05 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:06 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:07 +0000"})
+    analyzer.analyze({"ip": "1.2.3.4", "status": "404", "timestamp": "22/Mar/2026:10:00:08 +0000"})
+    
+    # 10th 404 + suspicious UA
+    log = {
+        "ip": "1.2.3.4", 
+        "status": "404", 
+        "timestamp": "22/Mar/2026:10:00:09 +0000",
+        "user_agent": "sqlmap/1.5"
+    }
+    
+    enriched = analyzer.analyze(log)
+    assert enriched["is_alert"] is True
+    # Should have TWO alerts
+    reasons = [a["alert_reason"] for a in enriched["alerts"]]
+    assert "Web Directory Scanning" in reasons
+    assert "Suspicious User-Agent" in reasons
+    # Flat field should also have both
+    assert "Web Directory Scanning" in enriched["alert_reason"]
+    assert "Suspicious User-Agent" in enriched["alert_reason"]
+
+def test_windows_failed_logon_rule():
+    rule = WindowsFailedLogonRule(threshold=3, window_seconds=60)
+    
+    # 3 fails for same account
+    logs = [
+        {"Id": "4625", "Message": "Account Name: admin", "TimeCreated": "3/22/2026 10:00:00 AM"},
+        {"Id": "4625", "Message": "Account Name: admin", "TimeCreated": "3/22/2026 10:00:10 AM"},
+        {"Id": "4625", "Message": "Account Name: admin", "TimeCreated": "3/22/2026 10:00:20 AM"},
+    ]
+    
+    assert rule.evaluate(logs[0]) is None
+    assert rule.evaluate(logs[1]) is None
+    alert = rule.evaluate(logs[2])
+    assert alert is not None
+    assert alert["alert_reason"] == "Windows Brute Force"
+    assert "admin" in alert["details"]
 
 def test_threat_intel_cache():
     cache = ThreatIntelCache(api_key="fake_key")

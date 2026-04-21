@@ -85,6 +85,7 @@ def main():
     parser.add_argument("--type", required=True, choices=["json", "csv", "db"], help="Output file type (json, csv, db).")
     parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
     parser.add_argument("--alert-file", help="Path to save detected security alerts.")
+    parser.add_argument("--analyze", action="store_true", help="Enable the stateful security analysis engine.")
     parser.add_argument("--abuseipdb-key", help="Optional API key for AbuseIPDB threat intelligence.")
     parser.add_argument("--geoip-db", help="Optional path to MaxMind GeoLite2-City.mmdb for IP enrichment.")
     parser.add_argument("--pattern-file", help="Optional JSON file containing custom regex patterns.")
@@ -130,10 +131,12 @@ def main():
         input_desc = "Standard Input" if args.input == "-" else args.input
         logger.info(f"Parsing {args.format} logs from {input_desc}")
         
-        analyzer = StatefulSecurityAnalyzer(
-            abuseipdb_key=args.abuseipdb_key,
-            geoip_db_path=args.geoip_db
-        )
+        analyzer = None
+        if args.analyze:
+            analyzer = StatefulSecurityAnalyzer(
+                abuseipdb_key=args.abuseipdb_key,
+                geoip_db_path=args.geoip_db
+            )
 
         with parser_instance as current_parser:
             parsed_iterator = current_parser.parse()
@@ -156,6 +159,8 @@ def main():
                 "is_alert", "alert_reason", "details", "threat_score",
                 "country", "city", "asn", "isp"
             ]
+            if args.analyze:
+                extended_fields.append("alerts")
 
             if args.type == "csv":
                 with open(args.output, 'w', newline='', encoding='utf-8') as f:
@@ -183,7 +188,8 @@ def main():
                                     error_f.write(row.get('raw_line', '') + "\n")
                             else:
                                 stats['matched'] += 1
-                                row = analyzer.analyze(row)
+                                if analyzer:
+                                    row = analyzer.analyze(row)
                                 # Stats
                                 if row.get('ip'): ip_counter[row['ip']] += 1
                                 if row.get('status'): status_counter[row['status']] += 1
@@ -222,7 +228,8 @@ def main():
                                     error_f.write(row.get('raw_line', '') + "\n")
                             else:
                                 stats['matched'] += 1
-                                row = analyzer.analyze(row)
+                                if analyzer:
+                                    row = analyzer.analyze(row)
                                 # Stats
                                 if row.get('ip'): ip_counter[row['ip']] += 1
                                 if row.get('status'): status_counter[row['status']] += 1
@@ -274,7 +281,8 @@ def main():
                                 error_f.write(row.get('raw_line', '') + "\n")
                         else:
                             stats['matched'] += 1
-                            row = analyzer.analyze(row)
+                            if analyzer:
+                                row = analyzer.analyze(row)
                             # Stats
                             if row.get('ip'): ip_counter[row['ip']] += 1
                             if row.get('status'): status_counter[row['status']] += 1
@@ -299,7 +307,8 @@ def main():
             if error_f:
                 error_f.close()
 
-            analyzer.close()
+            if analyzer:
+                analyzer.close()
             
             # Print Dashboard
             print_summary(

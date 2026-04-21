@@ -7,6 +7,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Project specific
+test.db
+*.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

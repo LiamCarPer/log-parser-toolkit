@@ -5,7 +5,7 @@ try:
 except ImportError:
     geoip2 = None
 
-from .rules import SecurityRule, SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule
+from .rules import SecurityRule, SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule, WindowsFailedLogonRule
 from .threat_intel import ThreatIntelCache
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,8 @@ class StatefulSecurityAnalyzer:
             SSHBruteForceRule(),
             PrivilegeEscalationRule(),
             WebScanningRule(),
-            UserAgentAnomalyRule()
+            UserAgentAnomalyRule(),
+            WindowsFailedLogonRule()
         ]
         # Initialize threat intel cache
         self.intel_cache = ThreatIntelCache(abuseipdb_key)
@@ -43,12 +44,14 @@ class StatefulSecurityAnalyzer:
             # Don't analyze logs that failed parsing
             return log
 
+        # Initialize alerts list
+        log["alerts"] = []
+
         # 1. Evaluate detection rules
         for rule in self.rules:
             alert = rule.evaluate(log)
             if alert:
-                log.update(alert)
-                break
+                log["alerts"].append(alert)
         
         # 2. Enrich with Threat Intelligence & GeoIP
         ip = log.get('ip')
@@ -58,10 +61,11 @@ class StatefulSecurityAnalyzer:
             if score is not None:
                 log['threat_score'] = score
                 if score >= 80:
-                    log['is_alert'] = True
-                    if not log.get('alert_reason'):
-                        log['alert_reason'] = "Known Malicious IP"
-                        log['details'] = f"IP {ip} has high AbuseIPDB score: {score}"
+                    log["alerts"].append({
+                        "is_alert": True,
+                        "alert_reason": "Known Malicious IP",
+                        "details": f"IP {ip} has high AbuseIPDB score: {score}"
+                    })
             
             # GeoIP Enrichment
             if self.geoip_reader:
@@ -83,6 +87,12 @@ class StatefulSecurityAnalyzer:
                 except Exception:
                     # Ignore lookup failures for internal/unmapped IPs
                     pass
+
+        # 3. Consolidate alerts for flat output formats (CSV/SQLite)
+        if log["alerts"]:
+            log["is_alert"] = True
+            log["alert_reason"] = "; ".join([a.get("alert_reason", "Unknown") for a in log["alerts"]])
+            log["details"] = "; ".join([a.get("details", "") for a in log["alerts"]])
         
         return log
 

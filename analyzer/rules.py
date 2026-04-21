@@ -139,3 +139,50 @@ class UserAgentAnomalyRule(SecurityRule):
                     "details": f"Detected potential automated tool/scanner: {suspect}"
                 }
         return None
+
+class WindowsFailedLogonRule(SecurityRule):
+    """
+    Rule 5 (Velocity): 5 failed Windows logons from the same IP/Account within 60 seconds.
+    Detects Event ID 4625 (Audit Failure).
+    """
+    def __init__(self, threshold: int = 5, window_seconds: int = 60):
+        self.threshold = threshold
+        self.window_seconds = window_seconds
+        self.history = {} # Key -> deque of timestamps
+
+    def evaluate(self, log: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # Windows CSV parser might use 'Id' or 'EventID'
+        event_id = str(log.get('Id') or log.get('EventID') or '')
+        
+        if event_id == '4625':
+            # Extract target account or IP if possible
+            msg = log.get('Message', '')
+            target = "unknown"
+            # Try to find an account name or IP in the message
+            match = re.search(r"Account Name:\s+(\S+)", msg)
+            if match:
+                target = match.group(1)
+            
+            # Use timestamp
+            timestamp_str = log.get('TimeCreated') or log.get('timestamp')
+            if not timestamp_str:
+                return None
+            
+            timestamp = parse_timestamp(timestamp_str)
+            
+            if target not in self.history:
+                self.history[target] = deque()
+            
+            hist = self.history[target]
+            hist.append(timestamp)
+            
+            while hist and (timestamp - hist[0]).total_seconds() > self.window_seconds:
+                hist.popleft()
+            
+            if len(hist) >= self.threshold:
+                return {
+                    "is_alert": True,
+                    "alert_reason": "Windows Brute Force",
+                    "details": f"Detected {len(hist)} failed logins for account '{target}' within {self.window_seconds}s"
+                }
+        return None
