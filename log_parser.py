@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 
 from parsers import get_parser, get_available_parsers
 from analyzer import StatefulSecurityAnalyzer
+from writers import get_writer
 
 # Configure logging
 logging.basicConfig(
@@ -133,6 +134,14 @@ def main():
         
         analyzer = None
         if args.analyze:
+            if args.geoip_db:
+                try:
+                    import geoip2
+                except ImportError:
+                    logger.error("The 'geoip2' library is required for --geoip-db enrichment.")
+                    logger.info("Install it using: pip install \".[geoip]\"")
+                    sys.exit(1)
+
             analyzer = StatefulSecurityAnalyzer(
                 abuseipdb_key=args.abuseipdb_key,
                 geoip_db_path=args.geoip_db
@@ -146,10 +155,6 @@ def main():
                 logger.warning("No valid log lines parsed or file is empty.")
                 sys.exit(0)
 
-            error_f = None
-            if args.error_file:
-                error_f = open(args.error_file, 'w', encoding='utf-8')
-
             import itertools
             all_rows = itertools.chain([first_item], parsed_iterator)
 
@@ -162,17 +167,15 @@ def main():
             if args.analyze:
                 extended_fields.append("alerts")
 
-            if args.type == "csv":
-                with open(args.output, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=extended_fields)
-                    writer.writeheader()
-                    
-                    alert_f = None
+            error_f = open(args.error_file, 'w', encoding='utf-8') if args.error_file else None
+            
+            try:
+                with get_writer(args.type, args.output, extended_fields) as writer:
+                    # Alert writer is just a secondary writer, usually JSON or CSV
                     alert_writer = None
                     if args.alert_file:
-                        alert_f = open(args.alert_file, 'w', newline='', encoding='utf-8')
-                        alert_writer = csv.DictWriter(alert_f, fieldnames=extended_fields)
-                        alert_writer.writeheader()
+                        # For now, we use the same type as the main output, or could default to JSON
+                        alert_writer = get_writer(args.type, args.alert_file, extended_fields)
 
                     try:
                         for row in all_rows:
@@ -181,8 +184,6 @@ def main():
                                 stats['unmatched'] += 1
                                 if args.strict:
                                     logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
-                                    if error_f: error_f.close()
-                                    if alert_f: alert_f.close()
                                     sys.exit(1)
                                 if error_f:
                                     error_f.write(row.get('raw_line', '') + "\n")
@@ -190,6 +191,7 @@ def main():
                                 stats['matched'] += 1
                                 if analyzer:
                                     row = analyzer.analyze(row)
+                                
                                 # Stats
                                 if row.get('ip'): ip_counter[row['ip']] += 1
                                 if row.get('status'): status_counter[row['status']] += 1
@@ -197,115 +199,15 @@ def main():
                                     stats['alerts'] += 1
                                     alert_counter[row['alert_reason']] += 1
                                     if alert_writer:
-                                        alert_writer.writerow(row)
-                            
-                            writer.writerow(row)
+                                        alert_writer.write_row(row)
+                                
+                            writer.write_row(row)
                     finally:
-                        if alert_f: alert_f.close()
-
-            elif args.type == "json":
-                with open(args.output, 'w', encoding='utf-8') as f:
-                    f.write('[\n')
-                    alert_f = None
-                    if args.alert_file:
-                        alert_f = open(args.alert_file, 'w', encoding='utf-8')
-                        alert_f.write('[\n')
-
-                    is_first_out = True
-                    is_first_alert = True
-                    
-                    try:
-                        for row in all_rows:
-                            stats['total'] += 1
-                            if row.get("error"):
-                                stats['unmatched'] += 1
-                                if args.strict:
-                                    logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
-                                    if error_f: error_f.close()
-                                    if alert_f: alert_f.close()
-                                    sys.exit(1)
-                                if error_f:
-                                    error_f.write(row.get('raw_line', '') + "\n")
-                            else:
-                                stats['matched'] += 1
-                                if analyzer:
-                                    row = analyzer.analyze(row)
-                                # Stats
-                                if row.get('ip'): ip_counter[row['ip']] += 1
-                                if row.get('status'): status_counter[row['status']] += 1
-                                if row.get("is_alert"):
-                                    stats['alerts'] += 1
-                                    alert_counter[row['alert_reason']] += 1
-                                    if alert_f:
-                                        if not is_first_alert:
-                                            alert_f.write(',\n')
-                                        alert_f.write('    ' + json.dumps(row))
-                                        is_first_alert = False
-                            
-                            if not is_first_out:
-                                f.write(',\n')
-                            f.write('    ' + json.dumps(row))
-                            is_first_out = False
-                    finally:
-                        f.write('\n]\n')
-                        if alert_f:
-                            alert_f.write('\n]\n')
-                            alert_f.close()
-
-            elif args.type == "db":
-                conn = sqlite3.connect(args.output)
-                cursor = conn.cursor()
-                
-                # Sanitize field names for SQL
-                sql_fields = [f.replace("-", "_").replace(" ", "_") for f in extended_fields]
-                placeholders = ", ".join(["?" for _ in sql_fields])
-                columns_def = ", ".join([f"{f} TEXT" for f in sql_fields])
-                
-                cursor.execute(f"DROP TABLE IF EXISTS logs")
-                cursor.execute(f"CREATE TABLE logs ({columns_def})")
-                
-                insert_sql = f"INSERT INTO logs ({', '.join(sql_fields)}) VALUES ({placeholders})"
-                
-                batch = []
-                try:
-                    for row in all_rows:
-                        stats['total'] += 1
-                        if row.get("error"):
-                            stats['unmatched'] += 1
-                            if args.strict:
-                                logger.error(f"Strict mode enabled. Unmatched line: {row.get('raw_line')}")
-                                if error_f: error_f.close()
-                                conn.close()
-                                sys.exit(1)
-                            if error_f:
-                                error_f.write(row.get('raw_line', '') + "\n")
-                        else:
-                            stats['matched'] += 1
-                            if analyzer:
-                                row = analyzer.analyze(row)
-                            # Stats
-                            if row.get('ip'): ip_counter[row['ip']] += 1
-                            if row.get('status'): status_counter[row['status']] += 1
-                            if row.get("is_alert"):
-                                stats['alerts'] += 1
-                                alert_counter[row['alert_reason']] += 1
-                            
-                        # Prepare data for insertion (ensure all fields exist)
-                        values = [str(row.get(f, "")) for f in extended_fields]
-                        batch.append(values)
-                        
-                        if len(batch) >= 1000:
-                            cursor.executemany(insert_sql, batch)
-                            batch = []
-                    
-                    if batch:
-                        cursor.executemany(insert_sql, batch)
-                    conn.commit()
-                finally:
-                    conn.close()
-
-            if error_f:
-                error_f.close()
+                        if alert_writer:
+                            alert_writer.close()
+            finally:
+                if error_f:
+                    error_f.close()
 
             if analyzer:
                 analyzer.close()

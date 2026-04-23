@@ -13,7 +13,6 @@ authors = [
     {name = "Liam", email = "carvajalperezliam7@gmail.com~"}
 ]
 dependencies = [
-    "geoip2>=4.8.0",
     "rich>=13.7.0"
 ]
 
@@ -21,6 +20,7 @@ dependencies = [
 log-parser = "log_parser:main"
 
 [project.optional-dependencies]
+geoip = ["geoip2>=4.8.0"]
 test = ["pytest>=7.0.0"]
 
 [tool.setuptools]

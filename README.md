@@ -35,10 +35,14 @@ graph TD
     D -->|Yields Dict| G[Security Analyzer]
     E -->|Yields Dict| G
     F -->|Yields Dict| G
-    G -->|Enriches Dict| H[Streaming Writer]
-    H -->|Export| I(Structured JSON)
-    H -->|Export| J(Structured CSV)
-    G -->|Alert| K(High-Fidelity Alerts)
+    G -->|Enriches Dict| H{Writer Factory}
+    H -->|Type: json| I[JSONWriter]
+    H -->|Type: csv| J[CSVWriter]
+    H -->|Type: db| K[SQLiteWriter]
+    I -->|Export| L(Structured JSON)
+    J -->|Export| M(Structured CSV)
+    K -->|Export| N(SQL Database)
+    G -->|Alert| O(High-Fidelity Alerts)
 ```
 
 ## Features
@@ -94,8 +98,11 @@ source .venv/bin/activate
 # On Windows:
 # .venv\Scripts\activate
 
-# Install the toolkit locally (makes `log-parser` available globally in the venv)
+# Install the toolkit locally
 pip install -e .
+
+# Optional: Install with GeoIP support for IP enrichment
+pip install -e ".[geoip]"
 ```
 
 ## Usage
@@ -177,6 +184,12 @@ log-parser --input logs/auth.log --format linux --output full_data.csv --type cs
 ### 4. Windows Event Log Ingestion to SQLite
 ```bash
 log-parser --input samples/sample_windows.csv --format windows --output audit_report.db --type db --analyze
+```
+
+### 5. Custom Regex Pattern Ingestion
+```bash
+# Parse a bespoke format using an external regex definition
+log-parser --input custom.log --format custom --pattern-file samples/patterns_sample.json --pattern-name firewall_legacy --output results.json --type json
 ```
 
 ## Testing

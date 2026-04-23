@@ -9,17 +9,17 @@ def test_user_agent_anomaly_rule():
     rule = UserAgentAnomalyRule()
     
     # Normal UA
-    log1 = {"user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    log1 = {"user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "status": "200"}
     assert rule.evaluate(log1) is None
     
     # Suspicious UA
-    log2 = {"user_agent": "sqlmap/1.5.11#stable (https://sqlmap.org)"}
+    log2 = {"user_agent": "sqlmap/1.5.11#stable (https://sqlmap.org)", "status": "200"}
     alert = rule.evaluate(log2)
     assert alert is not None
     assert alert["alert_reason"] == "Suspicious User-Agent"
     
     # Empty UA
-    log3 = {"user_agent": "-"}
+    log3 = {"user_agent": "-", "status": "200"}
     alert = rule.evaluate(log3)
     assert alert is not None
     assert alert["alert_reason"] == "Missing User-Agent"

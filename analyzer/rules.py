@@ -122,6 +122,11 @@ class UserAgentAnomalyRule(SecurityRule):
     }
 
     def evaluate(self, log: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # Only evaluate for logs that are expected to have a User-Agent
+        # (e.g. web logs usually have 'request' or 'status' fields)
+        if 'status' not in log and 'request' not in log:
+            return None
+
         ua = log.get('user_agent', '')
         if not ua or ua == '-':
             return {
