@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from collections import deque
 from datetime import datetime
-from parsers.utils import extract_ip, parse_timestamp
+from log_parser_toolkit.parsers.utils import extract_ip, parse_timestamp
 
 class SecurityRule(ABC):
     """

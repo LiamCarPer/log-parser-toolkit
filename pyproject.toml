@@ -17,14 +17,11 @@ dependencies = [
 ]
 
 [project.scripts]
-log-parser = "log_parser:main"
+log-parser = "log_parser_toolkit.cli:main"
 
 [project.optional-dependencies]
 geoip = ["geoip2>=4.8.0"]
 test = ["pytest>=7.0.0"]
 
-[tool.setuptools]
-py-modules = ["log_parser"]
-
 [tool.setuptools.packages.find]
-include = ["parsers*"]
+include = ["log_parser_toolkit*"]

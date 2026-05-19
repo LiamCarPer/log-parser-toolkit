@@ -1,5 +1,5 @@
 import pytest
-from parsers.windows import WindowsLogParser
+from log_parser_toolkit.parsers.windows import WindowsLogParser
 
 def test_windows_log_parser_success(tmp_path):
     p = tmp_path / "sample_windows.csv"

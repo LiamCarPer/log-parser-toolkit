@@ -1,5 +1,5 @@
 import pytest
-from parsers.linux import LinuxSyslogParser
+from log_parser_toolkit.parsers.linux import LinuxSyslogParser
 
 def test_linux_syslog_parser_success(tmp_path):
     d = tmp_path / "logs"

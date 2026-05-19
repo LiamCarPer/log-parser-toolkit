@@ -1,5 +1,5 @@
 import pytest
-from log_parser import main
+from log_parser_toolkit.cli import main
 import sys
 from unittest.mock import patch
 import json

@@ -1,5 +1,5 @@
 import pytest
-from parsers.web import WebLogParser
+from log_parser_toolkit.parsers.web import WebLogParser
 
 def test_web_log_parser_success(tmp_path):
     p = tmp_path / "sample_web.log"

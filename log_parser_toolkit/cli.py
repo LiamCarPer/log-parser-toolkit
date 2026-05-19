@@ -7,9 +7,10 @@ import sqlite3
 from collections import Counter
 from typing import List, Dict, Any
 
-from parsers import get_parser, get_available_parsers
-from analyzer import StatefulSecurityAnalyzer
-from writers import get_writer
+from log_parser_toolkit.parsers import get_parser, get_available_parsers
+from log_parser_toolkit.analyzer import StatefulSecurityAnalyzer
+from log_parser_toolkit.writers import get_writer
+from log_parser_toolkit.api import parse_stream
 
 # Configure logging
 logging.basicConfig(
@@ -178,7 +179,10 @@ def main():
                         alert_writer = get_writer(args.type, args.alert_file, extended_fields)
 
                     try:
-                        for row in all_rows:
+                        middleware_stack = [analyzer] if analyzer else []
+                        processed_stream = parse_stream(all_rows, middleware_stack)
+                        
+                        for row in processed_stream:
                             stats['total'] += 1
                             if row.get("error"):
                                 stats['unmatched'] += 1
@@ -189,8 +193,6 @@ def main():
                                     error_f.write(row.get('raw_line', '') + "\n")
                             else:
                                 stats['matched'] += 1
-                                if analyzer:
-                                    row = analyzer.analyze(row)
                                 
                                 # Stats
                                 if row.get('ip'): ip_counter[row['ip']] += 1

@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
-from analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule, WindowsFailedLogonRule
-from analyzer.middleware import StatefulSecurityAnalyzer
-from analyzer.threat_intel import ThreatIntelCache
+from log_parser_toolkit.analyzer.rules import SSHBruteForceRule, PrivilegeEscalationRule, WebScanningRule, UserAgentAnomalyRule, WindowsFailedLogonRule
+from log_parser_toolkit.analyzer.middleware import StatefulSecurityAnalyzer
+from log_parser_toolkit.analyzer.threat_intel import ThreatIntelCache
 from unittest.mock import patch, MagicMock
 
 def test_user_agent_anomaly_rule():
@@ -168,8 +168,7 @@ def test_threat_intel_cache():
 
 def test_analyzer_with_threat_intel():
     analyzer = StatefulSecurityAnalyzer(abuseipdb_key="fake_key")
-    
-    with patch("analyzer.threat_intel.ThreatIntelCache.get_threat_score") as mock_get_score:
+    with patch("log_parser_toolkit.analyzer.threat_intel.ThreatIntelCache.get_threat_score") as mock_get_score:
         mock_get_score.return_value = 90
 
         log = {"ip": "1.2.3.4", "status": "200", "timestamp": "22/Mar/2026:10:00:00 +0000", "user_agent": "Mozilla/5.0"}
