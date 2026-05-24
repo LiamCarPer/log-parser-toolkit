@@ -123,17 +123,39 @@ def main():
     parser.add_argument("--ioc-report", metavar="PATH",
                         help="Path to write the IOC extraction report (JSON). "
                              "Scans all log records for IPs, domains, URLs, hashes, and emails.")
+    # HTML Incident Report Generator
+    parser.add_argument("--report", metavar="PATH",
+                        help="Path to write the interactive HTML incident report dashboard.")
 
     args = parser.parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
+    # HTML report auto-enrichment setup
+    if args.report:
+        import os
+        args.analyze = True
+        if not args.sigma_rules:
+            try:
+                import yaml
+                default_sigma_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sigma_rules")
+                if os.path.isdir(default_sigma_dir):
+                    args.sigma_rules = default_sigma_dir
+                    logger.info(f"Auto-loaded bundled SIGMA rules from: {default_sigma_dir}")
+            except ImportError:
+                logger.warning("PyYAML is not installed. Skipping auto-loading of SIGMA rules in HTML report.")
+
+    # Time tracking
+    import time
+    start_time = time.time()
+
     # Stats Tracking
     stats = Counter()
     alert_counter = Counter()
     ip_counter = Counter()
     status_counter = Counter()
+    recent_alerts = []
 
     custom_pattern = None
     if args.format == "custom":
@@ -207,7 +229,7 @@ def main():
 
         # 3. IOC Extraction Engine
         ioc_extractor = None
-        if args.ioc_report:
+        if args.ioc_report or args.report:
             from log_parser_toolkit.ioc import IOCExtractor
             ioc_extractor = IOCExtractor()
             middleware_stack.append(ioc_extractor)
@@ -268,6 +290,8 @@ def main():
                                 if row.get("is_alert"):
                                     stats['alerts'] += 1
                                     alert_counter[row['alert_reason']] += 1
+                                    if len(recent_alerts) < 500:
+                                        recent_alerts.append(row.copy())
                                     if alert_writer:
                                         alert_writer.write_row(row)
 
@@ -295,6 +319,36 @@ def main():
                 sigma_loaded=len(sigma_analyzer) if sigma_analyzer else 0,
                 ioc_report_path=args.ioc_report or "",
             )
+
+            # Generate HTML Incident Report
+            if args.report:
+                duration = time.time() - start_time
+                from datetime import datetime, timezone
+                report_data = {
+                    "metadata": {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "format": args.format,
+                        "input_desc": input_desc,
+                        "duration_seconds": round(duration, 3),
+                    },
+                    "stats": {
+                        "total": stats["total"],
+                        "matched": stats["matched"],
+                        "unmatched": stats["unmatched"],
+                        "alerts": stats["alerts"],
+                    },
+                    "top_ips": ip_counter.most_common(10),
+                    "top_status": status_counter.most_common(5),
+                    "alert_breakdown": alert_counter.most_common(10),
+                    "recent_alerts": recent_alerts,
+                    "ioc_report": ioc_extractor.get_report() if ioc_extractor else None,
+                }
+                from log_parser_toolkit.analyzer import write_html_report
+                try:
+                    write_html_report(args.report, report_data)
+                    logger.info(f"HTML Incident Report written to {args.report}")
+                except Exception as e:
+                    logger.error(f"Failed to write HTML report: {e}")
 
     except Exception as e:
         logger.error(f"Error during parsing or saving: {e}")

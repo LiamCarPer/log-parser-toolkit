@@ -18,6 +18,9 @@ This toolkit was built to demonstrate clean software architecture, advanced regu
 - [Installation](#installation)
 - [Usage](#usage)
 - [Security Analysis Engine](#security-analysis-engine)
+- [SIGMA Rule Integration](#sigma-rule-integration)
+- [IOC Extraction Engine](#ioc-extraction-engine)
+- [HTML Security Incident Report](#html-security-incident-report)
 - [Examples](#examples)
 - [Testing](#testing)
 
@@ -101,7 +104,7 @@ log-parser-toolkit/
 │       ├── rules.py                 # 5 detection rules (SSH, priv-esc, web scan…)
 │       ├── threat_intel.py          # AbuseIPDB cache
 │       └── mitre_mappings.json      # MITRE ATT&CK technique lookup table
-├── samples/                         # Sample log files and output examples
+├── samples/                         # Rich incident simulation logs (syslog, web) & pre-generated reports
 ├── tests/                           # Pytest unit & integration tests
 └── .github/workflows/               # CI/CD pipelines
 ```
@@ -149,6 +152,7 @@ log-parser --input <path_to_log> --format <format_name> --output <path_to_output
 - `--analyze`: (Optional) Enable the stateful security analysis engine.
 - `--sigma-rules`: (Optional) Path to a directory or single file containing SIGMA rules (YAML).
 - `--ioc-report`: (Optional) Path to write a structured JSON IOC extraction report.
+- `--report`: (Optional) Path to write the interactive HTML incident report dashboard.
 - `--alert-file`: (Optional) Path to save security-critical events (alerts).
 - `--abuseipdb-key`: (Optional) Your AbuseIPDB API key for automatic threat scoring.
 - `--geoip-db`: (Optional) Path to your local MaxMind GeoLite2-City.mmdb for IP enrichment.
@@ -293,6 +297,31 @@ The generated report is saved as a structured JSON file:
 ```bash
 log-parser --input logs/web_access.log --format web --output parsed_web.json --type json --ioc-report ioc_report.json
 ```
+
+## HTML Security Incident Report
+
+The toolkit features a premium, interactive **HTML Incident Report Generator** (enabled via `--report <path>`) designed to present parsed intelligence in a visual dashboard suitable for recruiters and SOC leads.
+
+When `--report` is specified, the tool automatically under-the-hood:
+1. Runs the Stateful Security Analysis engine (`--analyze`).
+2. Loads bundled SIGMA detection rules (if `PyYAML` is installed).
+3. Automatically runs the IOC Extraction Engine.
+4. Generates a self-contained interactive HTML/CSS dashboard with zero external assets required.
+
+### Key Visual Components:
+- **Overview Dashboard**: General parser execution metrics (success %, total records, alerts, active IOCs) with interactive Doughnut and Bar charts showing status code distribution and rule match frequency.
+- **Triggered Alerts List**: A filterable table of triggered alerts. Includes a live Javascript search filter (by IP, signature, details) and a threat severity filter. Supports expanding rows to inspect raw log entries in structured JSON.
+- **IOC Catalog**: A clean card-based index of all extracted indicators (public IPs, domains, URLs, hashes, emails) with quick copy-to-clipboard buttons.
+- **MITRE ATT&CK Matrix**: An interactive matrix mapping tactical coverage. Triggered techniques (e.g., *Sudo Abuse*, *Brute Force*) are highlighted automatically with trigger counts.
+- **Event Timeline**: A chronological timeline visualizing the progression of security alerts.
+
+### Usage Example:
+```bash
+# Generate the report using the rich incident syslog simulation file
+log-parser --input samples/sample_incident_syslog.log --format linux --output parsed.json --type json --report report.html
+```
+
+You can view a pre-generated sample report directly: [sample_report.html](samples/sample_report.html).
 
 ## Examples
 
