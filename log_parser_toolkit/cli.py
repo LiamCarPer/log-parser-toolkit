@@ -72,17 +72,22 @@ def print_summary(stats: Counter, alert_counter: Counter, top_ips: List, top_sta
     if alert_counter:
         alert_table = Table(title="Alert Breakdown", box=box.SIMPLE)
         alert_table.add_column("Alert Reason", style="red")
+        alert_table.add_column("MITRE Technique", style="magenta")
         alert_table.add_column("Count", justify="right")
+        
+        from log_parser_toolkit.analyzer.middleware import MITRE_MAPPINGS
         for reason, count in alert_counter.most_common():
-            alert_table.add_row(reason, str(count))
+            mitre = MITRE_MAPPINGS.get(reason, {})
+            technique = f"{mitre.get('technique_id', '')} ({mitre.get('tactic', '')})" if mitre else "-"
+            alert_table.add_row(reason, technique, str(count))
         console.print(alert_table)
 
 def main():
     parser = argparse.ArgumentParser(description="Log Parser Toolkit: Parse logs into structured JSON or CSV.")
     parser.add_argument("--input", default="-", help="Path to the input log file. Use '-' for stdin (default).")
     
-    available_formats = list(get_available_parsers().keys())
-    parser.add_argument("--format", required=True, choices=available_formats, help="Format of the input log file.")
+    available_formats = list(get_available_parsers().keys()) + ["custom"]
+    parser.add_argument("--format", required=True, choices=available_formats, help="Format of the input log file. Use 'custom' with --pattern-file/--pattern-name for bespoke formats.")
     parser.add_argument("--output", required=True, help="Path to the output file.")
     parser.add_argument("--type", required=True, choices=["json", "csv", "db"], help="Output file type (json, csv, db).")
     parser.add_argument("--error-file", help="Path to save unmatched log lines (dead-letter file).")
@@ -108,6 +113,11 @@ def main():
     status_counter = Counter()
 
     custom_pattern = None
+    if args.format == "custom":
+        if not args.pattern_file or not args.pattern_name:
+            logger.error("--format custom requires both --pattern-file and --pattern-name")
+            sys.exit(1)
+
     if args.pattern_file:
         if not args.pattern_name:
             logger.error("--pattern-name is required when using --pattern-file")
@@ -123,8 +133,11 @@ def main():
             logger.error(f"Error loading pattern file: {e}")
             sys.exit(1)
 
+    # --format custom is a virtual format that reuses the linux parser engine
+    resolved_format = "linux" if args.format == "custom" else args.format
+
     try:
-        parser_instance = get_parser(args.format, args.input, encoding=args.encoding, custom_pattern=custom_pattern)
+        parser_instance = get_parser(resolved_format, args.input, encoding=args.encoding, custom_pattern=custom_pattern)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
@@ -163,7 +176,8 @@ def main():
             # Dynamic fields based on analyzer output (including GeoIP)
             extended_fields = fields + [
                 "is_alert", "alert_reason", "details", "threat_score",
-                "country", "city", "asn", "isp"
+                "country", "city", "asn", "isp",
+                "mitre_technique_ids", "mitre_tactics"
             ]
             if args.analyze:
                 extended_fields.append("alerts")

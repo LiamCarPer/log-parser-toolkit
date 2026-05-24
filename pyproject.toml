@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Liam", email = "carvajalperezliam7@gmail.com~"}
+    {name = "Liam", email = "carvajalperezliam7@gmail.com"}
 ]
 dependencies = [
     "rich>=13.7.0"
@@ -25,3 +25,8 @@ test = ["pytest>=7.0.0"]
 
 [tool.setuptools.packages.find]
 include = ["log_parser_toolkit*"]
+
+[tool.pytest.ini_options]
+# Prevent system-level pytest plugins (e.g. ROS ament/launch_testing) from
+# interfering with the test run when installed in the same Python environment.
+addopts = "-p no:launch_testing -p no:ament_copyright -p no:ament_flake8 -p no:ament_lint -p no:ament_pep257 -p no:ament_xmllint"

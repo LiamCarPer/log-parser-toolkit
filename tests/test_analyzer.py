@@ -176,3 +176,46 @@ def test_analyzer_with_threat_intel():
         assert enriched["threat_score"] == 90
         assert enriched["is_alert"] is True
         assert enriched["alert_reason"] == "Known Malicious IP"
+
+
+def test_mitre_attack_enrichment_on_alert():
+    """Each alert dict should be enriched with a mitre_attack sub-dict."""
+    from log_parser_toolkit.analyzer.middleware import StatefulSecurityAnalyzer, MITRE_MAPPINGS
+
+    # Sanity-check: mappings loaded correctly
+    assert "SSH Brute Force" in MITRE_MAPPINGS
+    assert MITRE_MAPPINGS["SSH Brute Force"]["technique_id"] == "T1110.001"
+
+    rule = SSHBruteForceRule(threshold=3, window_seconds=60)
+    for i in range(2):
+        rule.evaluate({"process": "sshd", "message": f"Failed password for u from 10.0.0.1", "timestamp": f"Mar 22 10:00:0{i}"})
+
+    # 3rd attempt triggers the alert
+    alert = rule.evaluate({"process": "sshd", "message": "Failed password for u from 10.0.0.1", "timestamp": "Mar 22 10:00:02"})
+    assert alert is not None
+
+    # Now run through the middleware enrichment method
+    enriched_alert = StatefulSecurityAnalyzer._enrich_alert_with_mitre(alert)
+    assert "mitre_attack" in enriched_alert
+    assert enriched_alert["mitre_attack"]["technique_id"] == "T1110.001"
+    assert enriched_alert["mitre_attack"]["tactic"] == "Credential Access"
+    assert "attack.mitre.org" in enriched_alert["mitre_attack"]["reference"]
+
+
+def test_mitre_flat_fields_on_log_record():
+    """After full middleware processing, the log record should have mitre_technique_ids and mitre_tactics flat fields."""
+    analyzer = StatefulSecurityAnalyzer()
+
+    # Trigger SSH Brute Force (5 fails)
+    logs = [
+        {"process": "sshd", "message": f"Failed password for u from 10.0.0.2", "timestamp": f"Mar 22 10:00:0{i}"}
+        for i in range(5)
+    ]
+    final = None
+    for log in logs:
+        final = analyzer.analyze(log)
+
+    assert final is not None
+    assert final.get("is_alert") is True
+    assert final.get("mitre_technique_ids") == "T1110.001"
+    assert final.get("mitre_tactics") == "Credential Access"

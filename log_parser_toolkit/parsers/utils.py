@@ -1,6 +1,9 @@
 import re
+import logging
 from datetime import datetime
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
 
 def extract_ip(text: str) -> Optional[str]:
     """Helper to extract an IP address from text."""
@@ -47,6 +50,7 @@ def parse_timestamp(ts_str: str, formats: Optional[List[str]] = None) -> datetim
         except ValueError:
             continue
             
+    logger.debug("Could not parse timestamp '%s' with any known format. Falling back to current time.", ts_str)
     return datetime.now()
 
 def normalize_timestamp(ts_str: str, formats: List[str]) -> str:

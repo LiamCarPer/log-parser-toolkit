@@ -21,7 +21,7 @@ Enter
 Show
 
 # 1. Demonstrate parsing Linux syslog to JSON
-Type "python3 log_parser.py --input samples/sample_syslog.log --format linux --output output.json --type json"
+Type "log-parser --input samples/sample_syslog.log --format linux --output output.json --type json"
 Sleep 500ms
 Enter
 Sleep 3s
@@ -38,7 +38,7 @@ Sleep 500ms
 
 # 2. NEW: Demonstrate Windows Event Log parsing to SQLite Database
 # This also showcases the new Security Alerts summary table
-Type "python3 log_parser.py --input samples/sample_windows.csv --format windows --output toolkit.db --type db"
+Type "log-parser --input samples/sample_windows.csv --format windows --output toolkit.db --type db"
 Sleep 500ms
 Enter
 Sleep 5s
@@ -48,7 +48,7 @@ Enter
 Sleep 500ms
 
 # 3. NEW: Demonstrate Web log parsing with Security Alert detection
-Type "python3 log_parser.py --input samples/sample_apache.log --format web --output alerts.csv --type csv --alert-file security_alerts.json"
+Type "log-parser --input samples/sample_apache.log --format web --output alerts.csv --type csv --alert-file security_alerts.json --analyze"
 Sleep 500ms
 Enter
 Sleep 5s
