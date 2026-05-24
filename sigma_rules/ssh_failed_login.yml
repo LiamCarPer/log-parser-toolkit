@@ -1,0 +1,23 @@
+title: SSH Failed Login Attempt
+id: a5e1c8b2-3d4f-4e2a-9b1c-7f8e2d3a4b5c
+status: stable
+description: |
+  Detects a single SSH failed login attempt from the sshd process.
+  For stateful brute-force detection across a time window, the built-in
+  SSHBruteForceRule in the security analysis engine provides correlation.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: linux
+  service: sshd
+detection:
+  selection:
+    process: sshd
+    message|contains: 'Failed password'
+  condition: selection
+level: low
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+falsepositives:
+  - Legitimate users mistyping their password

@@ -1,0 +1,26 @@
+title: Web Request with Suspicious HTTP Method
+id: 7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f
+status: stable
+description: >
+  Detects HTTP requests that use non-standard or dangerous HTTP methods
+  (like DEBUG, TRACK, CONNECT, or WebDAV methods like PROPFIND) that are
+  often used for scanning, probing, or exploiting vulnerabilities.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: webserver
+detection:
+  selection:
+    request|startswith:
+      - "DEBUG "
+      - "TRACK "
+      - "CONNECT "
+      - "PROPFIND "
+      - "OPTIONS "
+  condition: selection
+level: medium
+tags:
+  - attack.reconnaissance
+  - attack.t1595
+references:
+  - https://attack.mitre.org/techniques/T1595/

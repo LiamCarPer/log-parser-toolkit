@@ -1,0 +1,26 @@
+title: Windows Account Lockout (Event ID 4740)
+id: a8e7c2b9-9d0f-4e80-d172-6f7a8b9c0d1e
+status: stable
+description: >
+  Detects Windows Security Event ID 4740 which is generated when an account is
+  locked out after too many failed authentication attempts. Account lockout events
+  are a high-confidence indicator that a brute-force or password-spray attack has
+  been detected by the Windows operating system itself.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Id: '4740'
+  condition: selection
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+falsepositives:
+  - User accidentally triggering lockout with wrong password
+references:
+  - https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4740
+  - https://attack.mitre.org/techniques/T1110/003/

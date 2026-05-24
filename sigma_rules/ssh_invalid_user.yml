@@ -1,0 +1,23 @@
+title: SSH Invalid User
+id: b3f2d9c4-4e5a-4f3b-8c2d-1a2b3c4d5e6f
+status: stable
+description: >
+  Detects SSH login attempts for usernames that do not exist on the target system.
+  Scanning tools (Hydra, Medusa) often use wordlists that contain invalid usernames,
+  making this a reliable indicator of automated credential attacks.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: linux
+  service: sshd
+detection:
+  selection:
+    process: sshd
+    message|contains: 'Invalid user'
+  condition: selection
+level: medium
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+falsepositives:
+  - Misconfigured automation scripts using wrong usernames

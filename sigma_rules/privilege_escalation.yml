@@ -1,0 +1,29 @@
+title: Sudo Privilege Escalation to Root
+id: c4a3e8d5-5f6b-4a4c-9d3e-2b3c4d5e6f7a
+status: stable
+description: >
+  Detects sudo usage that results in privilege escalation to the root account
+  or spawning a privileged shell (/bin/bash). These patterns are commonly seen
+  after initial access and indicate an attacker attempting to gain full control
+  of the compromised host.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: linux
+  service: sudo
+detection:
+  selection_root:
+    process: sudo
+    message|contains: 'USER=root'
+  selection_bash:
+    process: sudo
+    message|contains: '/bin/bash'
+  condition: selection_root or selection_bash
+level: high
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+falsepositives:
+  - Legitimate administrator activity
+references:
+  - https://attack.mitre.org/techniques/T1548/003/

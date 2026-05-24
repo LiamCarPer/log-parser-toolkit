@@ -1,0 +1,27 @@
+title: Windows Failed Account Logon (Event ID 4625)
+id: f7d6b1a8-8c9e-4d7f-c061-5e6f7a8b9c0d
+status: stable
+description: >
+  Detects Windows Audit Failure events (Event ID 4625) indicating a failed
+  account logon attempt. A single event may be legitimate, but high volumes
+  from the same account indicate a brute-force or credential-stuffing attack.
+  Use in conjunction with the built-in WindowsFailedLogonRule for stateful
+  time-windowed correlation.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Id: '4625'
+    LevelDisplayName: 'Information'
+  condition: selection
+level: low
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+falsepositives:
+  - Legitimate user mistyping their password
+references:
+  - https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4625

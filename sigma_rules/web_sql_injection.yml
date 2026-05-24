@@ -1,0 +1,34 @@
+title: Web SQL Injection Attempt
+id: e6c5a0f7-7b8d-4c6e-bf50-4d5e6f7a8b9c
+status: stable
+description: >
+  Detects SQL injection payloads in HTTP request URIs. These patterns are
+  characteristic of manual probing or automated scanners (sqlmap) attempting to
+  identify injectable parameters in web applications.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: webserver
+detection:
+  selection_classic:
+    request|contains:
+      - "' OR "
+      - "' AND "
+      - "1=1"
+      - "1' OR '1'='1"
+  selection_comments:
+    request|contains:
+      - '--'
+      - '/*'
+      - '*/'
+  selection_union:
+    request|contains: 'UNION SELECT'
+  condition: selection_classic or selection_union or selection_comments
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1190
+falsepositives:
+  - Legitimate URIs containing SQL-like strings (very rare)
+references:
+  - https://attack.mitre.org/techniques/T1190/

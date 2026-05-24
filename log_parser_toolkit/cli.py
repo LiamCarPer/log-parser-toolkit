@@ -20,7 +20,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def print_summary(stats: Counter, alert_counter: Counter, top_ips: List, top_status: List):
+def print_summary(
+    stats: Counter,
+    alert_counter: Counter,
+    top_ips: List,
+    top_status: List,
+    sigma_loaded: int = 0,
+    ioc_report_path: str = "",
+):
     """Prints a professional terminal dashboard using rich."""
     try:
         from rich.console import Console
@@ -36,7 +43,7 @@ def print_summary(stats: Counter, alert_counter: Counter, top_ips: List, top_sta
         return
 
     console = Console()
-    
+
     # Header
     console.print(Panel("[bold blue]Log Parser Toolkit - Execution Summary[/bold blue]", box=box.DOUBLE))
 
@@ -48,23 +55,27 @@ def print_summary(stats: Counter, alert_counter: Counter, top_ips: List, top_sta
     stats_table.add_row("Successfully Parsed", str(stats['matched']))
     stats_table.add_row("Failed Parsing", str(stats['unmatched']))
     stats_table.add_row("Security Alerts", f"[bold red]{stats['alerts']}[/bold red]")
+    if sigma_loaded:
+        stats_table.add_row("SIGMA Rules Loaded", str(sigma_loaded))
+    if ioc_report_path:
+        stats_table.add_row("IOC Report", f"[dim]{ioc_report_path}[/dim]")
     console.print(stats_table)
 
     # Top IPs & Status
     col1, col2 = Table.grid(expand=True), Table.grid(expand=True)
-    
+
     ip_table = Table(title="Top 5 Source IPs", box=box.SIMPLE)
     ip_table.add_column("IP Address", style="green")
     ip_table.add_column("Count", justify="right")
     for ip, count in top_ips:
         ip_table.add_row(ip, str(count))
-    
+
     status_table = Table(title="Status Distribution", box=box.SIMPLE)
     status_table.add_column("Status", style="yellow")
     status_table.add_column("Count", justify="right")
     for status, count in top_status:
         status_table.add_row(str(status), str(count))
-        
+
     console.print(ip_table)
     console.print(status_table)
 
@@ -74,18 +85,22 @@ def print_summary(stats: Counter, alert_counter: Counter, top_ips: List, top_sta
         alert_table.add_column("Alert Reason", style="red")
         alert_table.add_column("MITRE Technique", style="magenta")
         alert_table.add_column("Count", justify="right")
-        
+
         from log_parser_toolkit.analyzer.middleware import MITRE_MAPPINGS
         for reason, count in alert_counter.most_common():
+            # Reason may be a SIGMA compound like "SIGMA: SSH Failed Login"
             mitre = MITRE_MAPPINGS.get(reason, {})
-            technique = f"{mitre.get('technique_id', '')} ({mitre.get('tactic', '')})" if mitre else "-"
+            if mitre:
+                technique = f"{mitre.get('technique_id', '')} ({mitre.get('tactic', '')})"
+            else:
+                technique = "-"
             alert_table.add_row(reason, technique, str(count))
         console.print(alert_table)
 
 def main():
     parser = argparse.ArgumentParser(description="Log Parser Toolkit: Parse logs into structured JSON or CSV.")
     parser.add_argument("--input", default="-", help="Path to the input log file. Use '-' for stdin (default).")
-    
+
     available_formats = list(get_available_parsers().keys()) + ["custom"]
     parser.add_argument("--format", required=True, choices=available_formats, help="Format of the input log file. Use 'custom' with --pattern-file/--pattern-name for bespoke formats.")
     parser.add_argument("--output", required=True, help="Path to the output file.")
@@ -100,6 +115,14 @@ def main():
     parser.add_argument("--encoding", help="Optional encoding for the input log file (e.g., utf-8, latin-1).", default=None)
     parser.add_argument("--strict", action="store_true", help="If enabled, stop execution on first unmatched line.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging.")
+    # SIGMA Rule Integration
+    parser.add_argument("--sigma-rules", metavar="PATH",
+                        help="Path to a SIGMA rule file or directory (.yml/.yaml). "
+                             "Requires: pip install \".[sigma]\"")
+    # IOC Extraction Engine
+    parser.add_argument("--ioc-report", metavar="PATH",
+                        help="Path to write the IOC extraction report (JSON). "
+                             "Scans all log records for IPs, domains, URLs, hashes, and emails.")
 
     args = parser.parse_args()
 
@@ -145,7 +168,13 @@ def main():
     try:
         input_desc = "Standard Input" if args.input == "-" else args.input
         logger.info(f"Parsing {args.format} logs from {input_desc}")
-        
+
+        # ------------------------------------------------------------------ #
+        # Build middleware stack                                              #
+        # ------------------------------------------------------------------ #
+        middleware_stack = []
+
+        # 1. Stateful security analysis engine
         analyzer = None
         if args.analyze:
             if args.geoip_db:
@@ -160,10 +189,35 @@ def main():
                 abuseipdb_key=args.abuseipdb_key,
                 geoip_db_path=args.geoip_db
             )
+            middleware_stack.append(analyzer)
 
+        # 2. SIGMA rule engine
+        sigma_analyzer = None
+        if args.sigma_rules:
+            try:
+                from log_parser_toolkit.sigma import SigmaAnalyzer
+                sigma_analyzer = SigmaAnalyzer(args.sigma_rules)
+                middleware_stack.append(sigma_analyzer)
+            except ImportError as e:
+                logger.error(str(e))
+                sys.exit(1)
+            except FileNotFoundError as e:
+                logger.error(str(e))
+                sys.exit(1)
+
+        # 3. IOC Extraction Engine
+        ioc_extractor = None
+        if args.ioc_report:
+            from log_parser_toolkit.ioc import IOCExtractor
+            ioc_extractor = IOCExtractor()
+            middleware_stack.append(ioc_extractor)
+
+        # ------------------------------------------------------------------ #
+        # Run the pipeline                                                     #
+        # ------------------------------------------------------------------ #
         with parser_instance as current_parser:
             parsed_iterator = current_parser.parse()
-            
+
             first_item = next(parsed_iterator, None)
             if not first_item:
                 logger.warning("No valid log lines parsed or file is empty.")
@@ -173,29 +227,29 @@ def main():
             all_rows = itertools.chain([first_item], parsed_iterator)
 
             fields = current_parser.get_fields()
-            # Dynamic fields based on analyzer output (including GeoIP)
+            # Dynamic fields based on analyzer output (including GeoIP, MITRE, SIGMA)
             extended_fields = fields + [
                 "is_alert", "alert_reason", "details", "threat_score",
                 "country", "city", "asn", "isp",
-                "mitre_technique_ids", "mitre_tactics"
+                "mitre_technique_ids", "mitre_tactics",
+                "sigma_rule_titles", "sigma_levels",
             ]
             if args.analyze:
                 extended_fields.append("alerts")
+            if args.sigma_rules:
+                extended_fields.append("sigma_alerts")
 
             error_f = open(args.error_file, 'w', encoding='utf-8') if args.error_file else None
-            
+
             try:
                 with get_writer(args.type, args.output, extended_fields) as writer:
-                    # Alert writer is just a secondary writer, usually JSON or CSV
                     alert_writer = None
                     if args.alert_file:
-                        # For now, we use the same type as the main output, or could default to JSON
                         alert_writer = get_writer(args.type, args.alert_file, extended_fields)
 
                     try:
-                        middleware_stack = [analyzer] if analyzer else []
                         processed_stream = parse_stream(all_rows, middleware_stack)
-                        
+
                         for row in processed_stream:
                             stats['total'] += 1
                             if row.get("error"):
@@ -207,7 +261,7 @@ def main():
                                     error_f.write(row.get('raw_line', '') + "\n")
                             else:
                                 stats['matched'] += 1
-                                
+
                                 # Stats
                                 if row.get('ip'): ip_counter[row['ip']] += 1
                                 if row.get('status'): status_counter[row['status']] += 1
@@ -216,7 +270,7 @@ def main():
                                     alert_counter[row['alert_reason']] += 1
                                     if alert_writer:
                                         alert_writer.write_row(row)
-                                
+
                             writer.write_row(row)
                     finally:
                         if alert_writer:
@@ -227,13 +281,19 @@ def main():
 
             if analyzer:
                 analyzer.close()
-            
+
+            # Write IOC report (after pipeline completes)
+            if ioc_extractor and args.ioc_report:
+                ioc_extractor.write_report(args.ioc_report)
+
             # Print Dashboard
             print_summary(
-                stats, 
-                alert_counter, 
-                ip_counter.most_common(5), 
-                status_counter.most_common(5)
+                stats,
+                alert_counter,
+                ip_counter.most_common(5),
+                status_counter.most_common(5),
+                sigma_loaded=len(sigma_analyzer) if sigma_analyzer else 0,
+                ioc_report_path=args.ioc_report or "",
             )
 
     except Exception as e:

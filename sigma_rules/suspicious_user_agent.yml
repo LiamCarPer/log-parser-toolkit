@@ -1,0 +1,33 @@
+title: Web Request with Suspicious User-Agent
+id: d5b4f9e6-6a7c-4b5d-ae4f-3c4d5e6f7a8b
+status: stable
+description: >
+  Detects HTTP requests made by well-known attack tools and vulnerability scanners
+  identifiable through their User-Agent strings. Tools like sqlmap, nikto, and
+  dirbuster almost always send their name in the User-Agent header, making detection
+  reliable with a very low false-positive rate.
+author: Log Parser Toolkit
+date: 2026-05-24
+logsource:
+  product: webserver
+detection:
+  selection:
+    user_agent|contains:
+      - 'sqlmap'
+      - 'nikto'
+      - 'nmap'
+      - 'dirbuster'
+      - 'gobuster'
+      - 'masscan'
+      - 'zgrab'
+      - 'nuclei'
+      - 'wfuzz'
+  condition: selection
+level: high
+tags:
+  - attack.reconnaissance
+  - attack.t1595.002
+falsepositives:
+  - Security team running authorised penetration tests
+references:
+  - https://attack.mitre.org/techniques/T1595/002/

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "log-parser-toolkit"
-version = "0.1.0"
+version = "0.2.0"
 description = "A command-line utility to parse various log formats into JSON or CSV."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -21,7 +21,8 @@ log-parser = "log_parser_toolkit.cli:main"
 
 [project.optional-dependencies]
 geoip = ["geoip2>=4.8.0"]
-test = ["pytest>=7.0.0"]
+sigma = ["PyYAML>=6.0"]
+test = ["pytest>=7.0.0", "PyYAML>=6.0"]
 
 [tool.setuptools.packages.find]
 include = ["log_parser_toolkit*"]
